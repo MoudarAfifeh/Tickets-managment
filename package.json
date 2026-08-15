@@ -1,0 +1,12 @@
+{
+  "name": "ticket-management-system",
+  "private": true,
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev:server": "bun run --cwd server dev",
+    "dev:client": "bun run --cwd client dev"
+  }
+}
