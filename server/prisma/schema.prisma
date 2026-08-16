@@ -28,14 +28,20 @@ enum TicketCategory {
 }
 
 model User {
-  id           String    @id @default(uuid())
-  email        String    @unique
-  passwordHash String
-  role         Role      @default(agent)
-  active       Boolean   @default(true)
-  createdAt    DateTime  @default(now())
-  sessions     Session[]
-  tickets      Ticket[]  @relation("AssignedAgent")
+  id            String    @id @default(uuid())
+  email         String    @unique
+  role          Role      @default(agent)
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  sessions      Session[]
+  tickets       Ticket[]  @relation("AssignedAgent")
+  name          String
+  emailVerified Boolean   @default(false)
+  image         String?
+  updatedAt     DateTime  @updatedAt
+  accounts      Account[]
+
+  @@map("user")
 }
 
 model Session {
@@ -44,6 +50,14 @@ model Session {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   createdAt DateTime @default(now())
+  token     String
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
 }
 
 model Ticket {
@@ -72,4 +86,36 @@ model Message {
   sender    SenderType
   body      String
   createdAt DateTime   @default(now())
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
 }
