@@ -30,6 +30,10 @@
   background: var(--bg);
 }
 
+.login-form input[aria-invalid="true"] {
+  border-color: #d33;
+}
+
 .login-form button {
   padding: 10px;
   border: 1px solid var(--accent-border);
