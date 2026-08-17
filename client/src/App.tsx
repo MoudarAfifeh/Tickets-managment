@@ -1,21 +1,29 @@
-import { useEffect, useState } from "react";
-import "./App.css";
+import { Navigate, Route, Routes } from "react-router-dom";
+import { RedirectIfAuthed, RequireAuth } from "./components/ProtectedRoute";
+import Login from "./pages/Login";
+import Home from "./pages/Home";
 
 function App() {
-  const [message, setMessage] = useState("Checking API...");
-
-  useEffect(() => {
-    fetch("/api/health")
-      .then((res) => res.json())
-      .then((data) => setMessage(`API status: ${data.status}`))
-      .catch(() => setMessage("API unreachable"));
-  }, []);
-
   return (
-    <div>
-      <div>Tickets</div>
-      <p>{message}</p>
-    </div>
+    <Routes>
+      <Route
+        path="/login"
+        element={
+          <RedirectIfAuthed>
+            <Login />
+          </RedirectIfAuthed>
+        }
+      />
+      <Route
+        path="/"
+        element={
+          <RequireAuth>
+            <Home />
+          </RequireAuth>
+        }
+      />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }
 
