@@ -8,7 +8,8 @@
     "start": "bun run src/index.ts",
     "prisma:generate": "bunx --bun prisma generate",
     "prisma:migrate": "bunx --bun prisma migrate dev",
-    "prisma:studio": "bunx --bun prisma studio"
+    "prisma:studio": "bunx --bun prisma studio",
+    "prisma:seed": "bunx --bun prisma db seed"
   },
   "devDependencies": {
     "@types/bun": "latest",
