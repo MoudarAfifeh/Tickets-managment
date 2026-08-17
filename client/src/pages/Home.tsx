@@ -14,8 +14,12 @@ function Home() {
   return (
     <div>
       <NavBar />
-      <div>Tickets</div>
-      <p>{message}</p>
+      <div className="p-6">
+        <div className="text-lg font-medium text-gray-900 dark:text-gray-100">
+          Tickets
+        </div>
+        <p className="mt-2 text-gray-600 dark:text-gray-400">{message}</p>
+      </div>
     </div>
   );
 }
