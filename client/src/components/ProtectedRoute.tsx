@@ -21,3 +21,14 @@ export function RedirectIfAuthed({ children }: { children: ReactNode }) {
 
   return children;
 }
+
+export function RequireAdmin({ children }: { children: ReactNode }) {
+  const { data, isPending } = useSession();
+
+  if (isPending)
+    return <p className="p-6 text-center text-gray-500">Loading...</p>;
+  if (!data) return <Navigate to="/login" replace />;
+  if (data.user.role !== "admin") return <Navigate to="/" replace />;
+
+  return children;
+}
