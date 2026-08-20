@@ -3,10 +3,12 @@
   "private": true,
   "workspaces": [
     "server",
-    "client"
+    "client",
+    "e2e"
   ],
   "scripts": {
     "dev:server": "bun run --cwd server dev",
-    "dev:client": "bun run --cwd client dev"
+    "dev:client": "bun run --cwd client dev",
+    "test:e2e": "bun run --cwd e2e test"
   }
 }

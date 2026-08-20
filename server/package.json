@@ -5,11 +5,14 @@
   "private": true,
   "scripts": {
     "dev": "bun run --watch src/index.ts",
+    "dev:test": "NODE_ENV=test bun run --watch src/index.ts",
     "start": "bun run src/index.ts",
     "prisma:generate": "bunx --bun prisma generate",
     "prisma:migrate": "bunx --bun prisma migrate dev",
     "prisma:studio": "bunx --bun prisma studio",
-    "prisma:seed": "bunx --bun prisma db seed"
+    "prisma:seed": "bunx --bun prisma db seed",
+    "db:test:migrate": "NODE_ENV=test bunx --bun prisma migrate deploy",
+    "db:test:seed": "NODE_ENV=test bunx --bun prisma db seed"
   },
   "devDependencies": {
     "@types/bun": "latest",
