@@ -13,9 +13,12 @@ function NavBar() {
   return (
     <nav className="flex items-center justify-between border-b border-gray-200 px-6 py-3 dark:border-gray-800">
       <div className="flex items-center gap-6">
-        <span className="text-lg font-medium text-gray-900 dark:text-gray-100">
+        <Link
+          to="/"
+          className="text-lg font-medium text-gray-900 dark:text-gray-100"
+        >
           Tickets
-        </span>
+        </Link>
         {data?.user.role === "admin" && (
           <Link
             to="/users"
