@@ -5,6 +5,7 @@ import { toNodeHandler } from "better-auth/node";
 import { auth } from "./lib/auth";
 import { attachSession } from "./middleware/session";
 import { authLimiter } from "./middleware/authLimiter";
+import { usersRouter } from "./routes/users";
 import { prisma } from "./db";
 
 const app = express();
@@ -28,6 +29,8 @@ app.get("/api/health", async (_req, res) => {
     res.status(503).json({ status: "ok", db: "unreachable" });
   }
 });
+
+app.use("/api/users", usersRouter);
 
 app.listen(port, () => {
   console.log(`Backend listening on http://localhost:${port}`);
