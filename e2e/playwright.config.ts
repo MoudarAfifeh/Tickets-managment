@@ -1,4 +1,14 @@
+import path from "node:path";
+import dotenv from "dotenv";
 import { defineConfig, devices } from "@playwright/test";
+
+// The e2e workspace doesn't auto-load server/.env.test the way Bun does for
+// the server itself, so pull in ADMIN_EMAIL/ADMIN_PASSWORD/AGENT_EMAIL/
+// AGENT_PASSWORD explicitly for tests that log in via the real /login form.
+dotenv.config({
+  path: path.resolve(import.meta.dirname, "../server/.env.test"),
+  quiet: true,
+});
 
 export default defineConfig({
   testDir: "./tests",
@@ -13,7 +23,18 @@ export default defineConfig({
     trace: "on-first-retry",
   },
 
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    // Logs in as the seeded admin and agent users once, saving each
+    // session's storageState to disk so authenticated tests can start
+    // from a signed-in state instead of re-driving the login form for
+    // every test where auth is just a precondition.
+    { name: "setup", testMatch: /auth\.setup\.ts/ },
+    {
+      name: "chromium",
+      use: { ...devices["Desktop Chrome"] },
+      dependencies: ["setup"],
+    },
+  ],
 
   // Two servers: the API (pointed at the separate test database via
   // NODE_ENV=test, see server/.env.test.example) and the Vite client,

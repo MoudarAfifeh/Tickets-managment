@@ -9,6 +9,8 @@
   "scripts": {
     "dev:server": "bun run --cwd server dev",
     "dev:client": "bun run --cwd client dev",
-    "test:e2e": "bun run --cwd e2e test"
+    "test:e2e": "bun run --cwd e2e test",
+    "test:e2e:ui": "bun run --cwd e2e test:ui",
+    "test:e2e:report": "bun run --cwd e2e report"
   }
 }
