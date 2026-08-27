@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import NavBar from "../components/NavBar";
+import { api } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -20,32 +21,17 @@ type UserListItem = {
   createdAt: string;
 };
 
+async function fetchUsers(): Promise<UserListItem[]> {
+  const res = await api.get<{ users: UserListItem[] }>("/users");
+  return res.data.users;
+}
+
 function Users() {
-  const [users, setUsers] = useState<UserListItem[] | null>(null);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadUsers() {
-      setError("");
-      const res = await fetch("/api/users");
-
-      if (!res.ok) {
-        if (!cancelled) setError("Failed to load users.");
-        return;
-      }
-
-      const data = await res.json();
-      if (!cancelled) setUsers(data.users);
-    }
-
-    loadUsers();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const {
+    data: users,
+    error,
+    isPending,
+  } = useQuery({ queryKey: ["users"], queryFn: fetchUsers });
 
   return (
     <div>
@@ -55,14 +41,16 @@ function Users() {
           Users
         </div>
 
-        {!users && !error && (
+        {isPending && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="size-4 animate-spin" />
             Loading users...
           </div>
         )}
 
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && (
+          <p className="text-sm text-destructive">{error.message}</p>
+        )}
 
         {users && (
           <Table>

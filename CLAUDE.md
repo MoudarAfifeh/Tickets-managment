@@ -28,6 +28,11 @@ AI-powered support ticket system. See `project-scope.md` for the product spec, `
 - Add components with `bunx --bun shadcn add <name>` from `client/`. The registry's `form` component is an empty stub in this version (`shadcn add form` produces nothing) — don't rely on it; wire `react-hook-form`'s `register()`/`errors` directly to `Input`/`Label` inside a `Card` instead (see `client/src/pages/Login.tsx` for the pattern).
 - Path alias `@/*` → `client/src/*` is configured in `client/tsconfig.json`, `client/tsconfig.app.json`, and `client/vite.config.ts` (the alias uses `import.meta.dirname`, not `__dirname`, to avoid a Vite native-config-loader deprecation warning).
 
+## Data fetching
+
+- Client-side server state uses **TanStack Query** (`@tanstack/react-query`) via `useQuery`/`useMutation`, not `useEffect`/`useState` fetch patterns. `QueryClientProvider` is set up in `client/src/main.tsx`.
+- HTTP requests go through **axios**, not the raw `fetch` API — use the shared instance exported from `client/src/lib/api.ts` (`baseURL: "/api"`, so call e.g. `api.get("/users")` rather than `fetch("/api/users")`). See `client/src/pages/Users.tsx` for the pattern.
+
 ## Authentication
 
 - Better Auth (`better-auth`) with the Prisma adapter, configured server-side in `server/src/lib/auth.ts`. Email/password only, with `disableSignUp: true` — accounts are created via the seed script (`server/prisma/seed.ts`, reads `ADMIN_EMAIL`/`ADMIN_PASSWORD` from `server/.env`), not self-serve sign-up.
