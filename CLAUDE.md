@@ -46,6 +46,31 @@ AI-powered support ticket system. See `project-scope.md` for the product spec, `
 
 End-to-end tests use Playwright, in its own Bun workspace at `e2e/`. **Use the `e2e-test-writer` subagent (`.claude/agents/e2e-test-writer.md`) for all e2e test work** — writing new tests, updating existing ones, or fixing a failing test — instead of writing or editing files under `e2e/` directly. That agent owns the environment setup, database-isolation, and auth/credential conventions for this workspace; delegate to it rather than duplicating that knowledge here.
 
+### Component tests
+
+Component tests use **Vitest** + **React Testing Library**, run against `client/`. Config lives in `client/vitest.config.ts` (jsdom environment, `globals: true`, setup file `client/src/test/setup.ts` importing `@testing-library/jest-dom`) — no separate `vitest.setup` package is needed since it merges `client/vite.config.ts`.
+
+- Colocate test files next to the component/page they cover, e.g. `client/src/pages/Users.tsx` → `client/src/pages/Users.test.tsx`.
+- Wrap the component under test with `renderWithProviders` from `client/src/test/render.tsx` instead of manually assembling `QueryClientProvider`/`MemoryRouter` — it's the shared helper for all component tests and takes any `ReactNode`.
+- Mock `axios` directly (not the `@/lib/api` wrapper) via `vi.hoisted`, since `client/src/lib/api.ts` calls `axios.create(...)` at module load time — a bare `vi.mock("axios")` or a post-import `mockReturnValue` is too late to affect that call. Pattern:
+  ```ts
+  const { mockedAxios } = vi.hoisted(() => {
+    const mockedAxios = { get: vi.fn(), create: vi.fn() };
+    mockedAxios.create.mockReturnValue(mockedAxios);
+    return { mockedAxios };
+  });
+  vi.mock("axios", () => ({ default: mockedAxios }));
+  ```
+  Then drive responses per test with `mockedAxios.get.mockResolvedValue(...)` / `.mockRejectedValue(...)` / `.mockReturnValue(new Promise(() => {}))` (pending state), and reset with `mockedAxios.get.mockReset()` in `beforeEach`.
+- Any component that renders `NavBar` (most pages) needs `@/lib/auth-client` mocked too — `NavBar` calls `useSession()` and `authClient.signOut`, both of which hit the network/Better Auth client if left real:
+  ```ts
+  vi.mock("@/lib/auth-client", () => ({
+    useSession: () => ({ data: { user: { name: "Admin User", role: "admin" } } }),
+    authClient: { signOut: vi.fn() },
+  }));
+  ```
+- Run all component tests: `bun run test:component` (from `client/`), scoped to `src/pages` and `src/components`. `bun run test` runs the full Vitest suite once; `bun run test:watch` runs it in watch mode. See `client/src/pages/Users.test.tsx` for a full worked example.
+
 ## Documentation lookups
 
 Use the **context7** MCP tools (`resolve-library-id` then `query-docs`) to pull current docs for any library or framework touched in this repo (Express, React, Vite, Bun, Prisma, etc.) instead of relying on training data — these move fast enough that remembered APIs go stale. Resolve the library id once, then query it for the specific API or setup question at hand.
