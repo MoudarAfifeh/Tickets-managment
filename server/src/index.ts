@@ -5,6 +5,7 @@ import { toNodeHandler } from "better-auth/node";
 import { auth } from "./lib/auth";
 import { attachSession } from "./middleware/session";
 import { authLimiter } from "./middleware/authLimiter";
+import { errorHandler } from "./middleware/errorHandler";
 import { usersRouter } from "./routes/users";
 import { prisma } from "./db";
 
@@ -31,6 +32,8 @@ app.get("/api/health", async (_req, res) => {
 });
 
 app.use("/api/users", usersRouter);
+
+app.use(errorHandler);
 
 app.listen(port, () => {
   console.log(`Backend listening on http://localhost:${port}`);

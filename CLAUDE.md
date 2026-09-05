@@ -6,7 +6,8 @@ AI-powered support ticket system. See `project-scope.md` for the product spec, `
 
 - `server/` — Express + TypeScript API, run with Bun. Entry point: `server/src/index.ts`. Dev port: 3000.
 - `client/` — React + TypeScript frontend (Vite), run with Bun. Dev server proxies `/api` to `http://localhost:3000` (see `client/vite.config.ts`).
-- Bun workspaces tie the two together (root `package.json`).
+- `code/` — shared TypeScript package (workspace name `code`), no build step; consumed directly from source (`main`/`types` point at `src/index.ts`). Holds cross-cutting code needed by both `client/` and `server/`, currently the shared Zod schemas — see **Data validation** below.
+- Bun workspaces tie the three together (root `package.json`).
 
 ## Running
 
@@ -32,6 +33,21 @@ AI-powered support ticket system. See `project-scope.md` for the product spec, `
 
 - Client-side server state uses **TanStack Query** (`@tanstack/react-query`) via `useQuery`/`useMutation`, not `useEffect`/`useState` fetch patterns. `QueryClientProvider` is set up in `client/src/main.tsx`.
 - HTTP requests go through **axios**, not the raw `fetch` API — use the shared instance exported from `client/src/lib/api.ts` (`baseURL: "/api"`, so call e.g. `api.get("/users")` rather than `fetch("/api/users")`). See `client/src/pages/Users.tsx` for the pattern.
+
+## Data validation
+
+- Use **Zod** (`zod`, v4) for all runtime data validation on both sides — installed in `client/`, `server/`, and the shared `code/` package. Do not hand-roll type checks or regex guards for request/form input. Use `z.email()` for email, not a custom regex.
+- **Any schema needed by both the client and the server must be defined once in `code/` and imported from there — never duplicated per side.** Put it in its own file under `code/src/` (e.g. `code/src/user.ts`), export the schema plus its inferred type (`export type XInput = z.infer<typeof xSchema>`), and re-export both from `code/src/index.ts`. Consumers add `"code": "workspace:*"` to their `package.json` and `bun install` from the repo root to link it, then `import { xSchema, type XInput } from "code"`. See `code/src/user.ts` (`createUserSchema`/`CreateUserInput`), used from `server/src/routes/users.ts` and `client/src/components/CreateUserDialog.tsx`.
+  - A schema only one side needs (e.g. the client-only `loginSchema` in `client/src/pages/Login.tsx` — there's no server-side login body to validate, Better Auth owns that) stays local to that side. Only move a schema into `code/` once a second consumer actually needs it.
+  - `code/` has no build step and is consumed straight from `.ts` source (both Bun and Vite handle this transparently) — there's nothing to run after editing it. One caveat: `bun run --watch` in `server/` doesn't watch files outside `server/`, so editing `code/src/*` needs a manual restart of `dev:server` to pick up (`dev:client`'s Vite HMR does pick it up).
+- Server: validate `req.body` with `schema.safeParse(...)` and return `400` with the first issue's message on failure (see `server/src/routes/users.ts`).
+- Client: forms use `react-hook-form` with `zodResolver` (`@hookform/resolvers/zod`) against the schema, and derive the form value type from the schema's own exported `z.infer` type rather than re-declaring it (see `client/src/pages/Login.tsx` and `client/src/components/CreateUserDialog.tsx`). Keep client and server in sync automatically by using the same imported schema — that's the point of `code/`.
+
+## Server error handling
+
+- The API runs on **Express 5**, which automatically forwards a rejected promise from an `async` route handler to the error middleware — **don't wrap route bodies in `try/catch`** just to re-`throw` or to call `next(err)`. Let the query reject and handle it centrally.
+- The one error handler is `server/src/middleware/errorHandler.ts`, registered last in `server/src/index.ts` (after all routes). It maps known errors to responses — currently Prisma `P2002` (unique constraint) → `409` — and falls through to a logged `500`. Add new known-error mappings there, not in individual routes.
+- Only keep a local `try/catch` in a handler when the error is genuinely recoverable at that point (e.g. `/api/health` degrading to a `503`), not for translating an error into a status code.
 
 ## Authentication
 
