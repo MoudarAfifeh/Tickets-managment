@@ -1,4 +1,5 @@
 import { screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import Users from "./Users";
 import { renderWithProviders } from "@/test/render";
 
@@ -111,5 +112,58 @@ describe("Users page", () => {
     expect(screen.getAllByText("Users").length).toBeGreaterThan(0);
     expect(screen.getByRole("link", { name: "Tickets" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Users" })).toBeInTheDocument();
+  });
+});
+
+describe("Create user dialog", () => {
+  beforeEach(() => {
+    mockedAxios.get.mockResolvedValue({ data: { users: [] } });
+  });
+
+  async function openDialog() {
+    const user = userEvent.setup();
+    renderWithProviders(<Users />);
+
+    expect(
+      screen.queryByRole("heading", { name: "Create user" }),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /new user/i }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Create user" }),
+    ).toBeInTheDocument();
+
+    return user;
+  }
+
+  it("shows the dialog when the New User button is clicked", async () => {
+    await openDialog();
+  });
+
+  it("hides the dialog when the Escape key is pressed", async () => {
+    const user = await openDialog();
+
+    await user.keyboard("{Escape}");
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("heading", { name: "Create user" }),
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  it("hides the dialog when clicking outside of it", async () => {
+    const user = await openDialog();
+
+    const overlay = document.querySelector('[data-slot="dialog-overlay"]');
+    expect(overlay).not.toBeNull();
+    await user.click(overlay as Element);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("heading", { name: "Create user" }),
+      ).not.toBeInTheDocument();
+    });
   });
 });
