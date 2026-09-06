@@ -115,12 +115,12 @@ describe("Users page", () => {
   });
 });
 
-describe("Create user dialog", () => {
+describe("user dialog wiring", () => {
   beforeEach(() => {
-    mockedAxios.get.mockResolvedValue({ data: { users: [] } });
+    mockedAxios.get.mockResolvedValue({ data: { users } });
   });
 
-  async function openDialog() {
+  async function openCreateDialog() {
     const user = userEvent.setup();
     renderWithProviders(<Users />);
 
@@ -137,12 +137,32 @@ describe("Create user dialog", () => {
     return user;
   }
 
-  it("shows the dialog when the New User button is clicked", async () => {
-    await openDialog();
+  it("opens the create dialog when the New User button is clicked", async () => {
+    await openCreateDialog();
+
+    expect(screen.getByLabelText("Name")).toHaveValue("");
+    expect(screen.getByLabelText("Email")).toHaveValue("");
+  });
+
+  it("opens the edit dialog pre-filled from the row's data", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<Users />);
+    await waitFor(() => expect(getDataRows()).toHaveLength(2));
+
+    await user.click(
+      screen.getByRole("button", { name: "Edit Ada Lovelace" }),
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Edit user" }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Name")).toHaveValue("Ada Lovelace");
+    expect(screen.getByLabelText("Email")).toHaveValue("ada@example.com");
+    expect(screen.getByLabelText("Password")).toHaveValue("");
   });
 
   it("hides the dialog when the Escape key is pressed", async () => {
-    const user = await openDialog();
+    const user = await openCreateDialog();
 
     await user.keyboard("{Escape}");
 
@@ -154,7 +174,7 @@ describe("Create user dialog", () => {
   });
 
   it("hides the dialog when clicking outside of it", async () => {
-    const user = await openDialog();
+    const user = await openCreateDialog();
 
     const overlay = document.querySelector('[data-slot="dialog-overlay"]');
     expect(overlay).not.toBeNull();

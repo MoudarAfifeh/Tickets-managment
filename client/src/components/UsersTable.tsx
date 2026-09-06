@@ -1,4 +1,6 @@
+import { Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -15,9 +17,10 @@ const SKELETON_ROWS = 5;
 type UsersTableProps = {
   users: UserListItem[] | undefined;
   isPending: boolean;
+  onEdit: (user: UserListItem) => void;
 };
 
-function UsersTable({ users, isPending }: UsersTableProps) {
+function UsersTable({ users, isPending, onEdit }: UsersTableProps) {
   return (
     <Table>
       <TableHeader>
@@ -27,6 +30,9 @@ function UsersTable({ users, isPending }: UsersTableProps) {
           <TableHead>Role</TableHead>
           <TableHead>Status</TableHead>
           <TableHead>Joined</TableHead>
+          <TableHead className="text-right">
+            <span className="sr-only">Actions</span>
+          </TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -48,6 +54,9 @@ function UsersTable({ users, isPending }: UsersTableProps) {
                 <TableCell>
                   <Skeleton className="h-4 w-20" />
                 </TableCell>
+                <TableCell className="text-right">
+                  <Skeleton className="ml-auto size-7 rounded-md" />
+                </TableCell>
               </TableRow>
             ))
           : users?.map((user) => (
@@ -68,6 +77,16 @@ function UsersTable({ users, isPending }: UsersTableProps) {
                 </TableCell>
                 <TableCell>
                   {new Date(user.createdAt).toLocaleDateString()}
+                </TableCell>
+                <TableCell className="text-right">
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={`Edit ${user.name}`}
+                    onClick={() => onEdit(user)}
+                  >
+                    <Pencil />
+                  </Button>
                 </TableCell>
               </TableRow>
             ))}

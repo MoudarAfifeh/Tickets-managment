@@ -7,3 +7,14 @@ export const createUserSchema = z.object({
 });
 
 export type CreateUserInput = z.infer<typeof createUserSchema>;
+
+// Same shape as createUserSchema, but the password is optional: "" means
+// "leave the password unchanged" rather than "set it to an empty string".
+export const editUserSchema = createUserSchema.extend({
+  password: z.union([
+    z.string().min(8, "Password must be at least 8 characters"),
+    z.literal(""),
+  ]),
+});
+
+export type EditUserInput = z.infer<typeof editUserSchema>;

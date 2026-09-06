@@ -30,14 +30,17 @@ function uniqueField(err: Prisma.PrismaClientKnownRequestError): string {
 }
 
 export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
-  if (
-    err instanceof Prisma.PrismaClientKnownRequestError &&
-    err.code === "P2002"
-  ) {
-    res.status(409).json({
-      error: `A user with that ${uniqueField(err)} already exists`,
-    });
-    return;
+  if (err instanceof Prisma.PrismaClientKnownRequestError) {
+    if (err.code === "P2002") {
+      res.status(409).json({
+        error: `A user with that ${uniqueField(err)} already exists`,
+      });
+      return;
+    }
+    if (err.code === "P2025") {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
   }
 
   console.error(err);
