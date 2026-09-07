@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useState } from "react";
 import {
   Dialog,
@@ -6,22 +7,52 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import DeleteUserConfirm from "@/components/DeleteUserConfirm";
 import UserForm from "@/components/UserForm";
 import type { UserDialogMode } from "@/pages/Users";
 
-const COPY: Record<
-  UserDialogMode["type"],
-  { title: string; description: string }
-> = {
-  create: {
-    title: "Create user",
-    description: "New users are created with the agent role.",
-  },
-  edit: {
-    title: "Edit user",
-    description: "Leave the password blank to keep it unchanged.",
-  },
+type DialogContentParts = {
+  title: string;
+  description: string;
+  body: ReactNode;
 };
+
+// One place that turns a mode into the dialog's title, blurb, and body.
+function contentFor(
+  mode: UserDialogMode,
+  onClose: () => void,
+): DialogContentParts {
+  switch (mode.type) {
+    case "create":
+    case "edit":
+      return {
+        title: mode.type === "edit" ? "Edit user" : "Create user",
+        description:
+          mode.type === "edit"
+            ? "Leave the password blank to keep it unchanged."
+            : "New users are created with the agent role.",
+        body: (
+          <UserForm
+            key={mode.type === "edit" ? mode.user.id : "create"}
+            mode={mode}
+            onSuccess={onClose}
+          />
+        ),
+      };
+    case "delete":
+      return {
+        title: "Delete user",
+        description: `${mode.user.name} will be removed from the list and lose access immediately.`,
+        body: (
+          <DeleteUserConfirm
+            key={mode.user.id}
+            user={mode.user}
+            onSuccess={onClose}
+          />
+        ),
+      };
+  }
+}
 
 type UserDialogProps = {
   mode: UserDialogMode | null;
@@ -34,7 +65,7 @@ function UserDialog({ mode, onClose }: UserDialogProps) {
   const [shownMode, setShownMode] = useState<UserDialogMode | null>(mode);
   if (mode && mode !== shownMode) setShownMode(mode);
 
-  const copy = shownMode ? COPY[shownMode.type] : null;
+  const content = shownMode ? contentFor(shownMode, onClose) : null;
 
   return (
     <Dialog
@@ -45,16 +76,10 @@ function UserDialog({ mode, onClose }: UserDialogProps) {
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{copy?.title}</DialogTitle>
-          <DialogDescription>{copy?.description}</DialogDescription>
+          <DialogTitle>{content?.title}</DialogTitle>
+          <DialogDescription>{content?.description}</DialogDescription>
         </DialogHeader>
-        {shownMode && (
-          <UserForm
-            key={shownMode.type === "edit" ? shownMode.user.id : "create"}
-            mode={shownMode}
-            onSuccess={onClose}
-          />
-        )}
+        {content?.body}
       </DialogContent>
     </Dialog>
   );

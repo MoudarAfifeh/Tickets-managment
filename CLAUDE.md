@@ -21,6 +21,7 @@ AI-powered support ticket system. See `project-scope.md` for the product spec, `
 - Local dev database: `npx prisma dev` (from `server/`) — Prisma's own embedded Postgres, no Docker or system Postgres install needed. **Must run under `npx`/Node, not Bun** — `bunx --bun prisma dev` fails building its PGlite runtime asset under Bun's bundler. Other Prisma commands (`generate`, `migrate dev`, `db push`) work fine under `bunx --bun`.
 - Start `npx prisma dev` first and leave it running, then set `DATABASE_URL` in `server/.env` to the connection string it prints (changes each fresh start — copy it in). `server/prisma.config.ts` loads `.env` via `dotenv/config` so this works under both Bun and Node.
 - Migrations: `bunx --bun prisma migrate dev --name <name>` from `server/`, applied migrations live in `server/prisma/migrations/` (committed to git).
+- **Users are soft-deleted**: `User.deletedAt` (nullable). `DELETE /api/users/:id` sets it and drops the user's sessions; it never hard-deletes, and admins can't be deleted (403). Any query that lists users must filter `where: { deletedAt: null }` (see `GET /api/users` in `server/src/routes/users.ts`).
 
 ## Styling & UI components
 

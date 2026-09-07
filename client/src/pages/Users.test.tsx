@@ -161,6 +161,35 @@ describe("user dialog wiring", () => {
     expect(screen.getByLabelText("Password")).toHaveValue("");
   });
 
+  it("offers delete for agents but not for admins", async () => {
+    renderWithProviders(<Users />);
+    await waitFor(() => expect(getDataRows()).toHaveLength(2));
+
+    expect(
+      screen.getByRole("button", { name: "Delete Grace Hopper" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Delete Ada Lovelace" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("opens the delete confirmation for the chosen user", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<Users />);
+    await waitFor(() => expect(getDataRows()).toHaveLength(2));
+
+    await user.click(
+      screen.getByRole("button", { name: "Delete Grace Hopper" }),
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Delete user" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Grace Hopper will be removed from the list/i),
+    ).toBeInTheDocument();
+  });
+
   it("hides the dialog when the Escape key is pressed", async () => {
     const user = await openCreateDialog();
 

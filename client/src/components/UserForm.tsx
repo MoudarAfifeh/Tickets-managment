@@ -1,28 +1,31 @@
 import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
 import { createUserSchema, editUserSchema, type CreateUserInput } from "code";
 import { Loader2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { api } from "@/lib/api";
+import { getServerErrorMessage } from "@/lib/serverError";
 import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { UserDialogMode, UserListItem } from "@/pages/Users";
 
+// The form only handles the modes with a form; delete has its own confirmation.
+type FormMode = Extract<UserDialogMode, { type: "create" | "edit" }>;
+
 // name / email / password — identical for create and edit; only the password
 // rule differs, and that lives in the schema picked below.
 type UserFormValues = CreateUserInput;
 
-const SUBMIT_LABEL: Record<UserDialogMode["type"], string> = {
+const SUBMIT_LABEL: Record<FormMode["type"], string> = {
   create: "Create user",
   edit: "Save changes",
 };
 
 async function submitUser(
-  mode: UserDialogMode,
+  mode: FormMode,
   values: UserFormValues,
 ): Promise<UserListItem> {
   const res =
@@ -36,7 +39,7 @@ async function submitUser(
 }
 
 type UserFormProps = {
-  mode: UserDialogMode;
+  mode: FormMode;
   onSuccess: () => void;
 };
 
@@ -65,13 +68,7 @@ function UserForm({ mode, onSuccess }: UserFormProps) {
       queryClient.invalidateQueries({ queryKey: ["users"] });
       onSuccess();
     },
-    onError: (error) => {
-      setServerError(
-        axios.isAxiosError(error) && error.response?.data?.error
-          ? error.response.data.error
-          : "Something went wrong. Please try again.",
-      );
-    },
+    onError: (error) => setServerError(getServerErrorMessage(error)),
   });
 
   const pending = isSubmitting || mutation.isPending;

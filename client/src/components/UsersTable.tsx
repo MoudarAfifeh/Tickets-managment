@@ -1,4 +1,4 @@
-import { Pencil } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -18,9 +18,10 @@ type UsersTableProps = {
   users: UserListItem[] | undefined;
   isPending: boolean;
   onEdit: (user: UserListItem) => void;
+  onDelete: (user: UserListItem) => void;
 };
 
-function UsersTable({ users, isPending, onEdit }: UsersTableProps) {
+function UsersTable({ users, isPending, onEdit, onDelete }: UsersTableProps) {
   return (
     <Table>
       <TableHeader>
@@ -55,7 +56,7 @@ function UsersTable({ users, isPending, onEdit }: UsersTableProps) {
                   <Skeleton className="h-4 w-20" />
                 </TableCell>
                 <TableCell className="text-right">
-                  <Skeleton className="ml-auto size-7 rounded-md" />
+                  <Skeleton className="ml-auto h-7 w-16 rounded-md" />
                 </TableCell>
               </TableRow>
             ))
@@ -79,14 +80,27 @@ function UsersTable({ users, isPending, onEdit }: UsersTableProps) {
                   {new Date(user.createdAt).toLocaleDateString()}
                 </TableCell>
                 <TableCell className="text-right">
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label={`Edit ${user.name}`}
-                    onClick={() => onEdit(user)}
-                  >
-                    <Pencil />
-                  </Button>
+                  <div className="flex justify-end gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`Edit ${user.name}`}
+                      onClick={() => onEdit(user)}
+                    >
+                      <Pencil />
+                    </Button>
+                    {/* Admins can't be deleted — hide the control for them. */}
+                    {user.role !== "admin" && (
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Delete ${user.name}`}
+                        onClick={() => onDelete(user)}
+                      >
+                        <Trash2 />
+                      </Button>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             ))}

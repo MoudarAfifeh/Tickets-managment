@@ -10,6 +10,7 @@ const { mockedAxios } = vi.hoisted(() => {
     get: vi.fn(),
     post: vi.fn(),
     patch: vi.fn(),
+    delete: vi.fn(),
     create: vi.fn(),
     isAxiosError: vi.fn(),
   };
@@ -31,6 +32,7 @@ const existingUser: UserListItem = {
 beforeEach(() => {
   mockedAxios.post.mockReset();
   mockedAxios.patch.mockReset();
+  mockedAxios.delete.mockReset();
   mockedAxios.isAxiosError.mockReset();
 });
 
@@ -240,6 +242,72 @@ describe("UserDialog — edit mode", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "Edit user" }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("UserDialog — delete mode", () => {
+  const mode: UserDialogMode = { type: "delete", user: existingUser };
+
+  it("asks for confirmation naming the user", () => {
+    render(mode);
+
+    expect(
+      screen.getByRole("heading", { name: "Delete user" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Ada Lovelace will be removed from the list/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Delete user" }),
+    ).toBeInTheDocument();
+  });
+
+  it("DELETEs the user and closes on confirm", async () => {
+    mockedAxios.delete.mockResolvedValue({ status: 204 });
+    const user = render(mode);
+
+    await user.click(screen.getByRole("button", { name: "Delete user" }));
+
+    await waitFor(() => {
+      expect(mockedAxios.delete).toHaveBeenCalledWith(
+        `/users/${existingUser.id}`,
+      );
+    });
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("heading", { name: "Delete user" }),
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  it("closes without deleting when Cancel is clicked", async () => {
+    const user = render(mode);
+
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("heading", { name: "Delete user" }),
+      ).not.toBeInTheDocument();
+    });
+    expect(mockedAxios.delete).not.toHaveBeenCalled();
+  });
+
+  it("shows a server error and stays open when the delete is rejected", async () => {
+    mockedAxios.isAxiosError.mockReturnValue(true);
+    mockedAxios.delete.mockRejectedValue({
+      response: { data: { error: "Admins cannot be deleted" } },
+    });
+    const user = render(mode);
+
+    await user.click(screen.getByRole("button", { name: "Delete user" }));
+
+    expect(
+      await screen.findByText("Admins cannot be deleted"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Delete user" }),
     ).toBeInTheDocument();
   });
 });

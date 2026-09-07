@@ -4,6 +4,7 @@ import { createUserSchema, editUserSchema } from "code";
 import { requireAdmin } from "../middleware/requireAdmin";
 import { requireAuth } from "../middleware/requireAuth";
 import { parseBody } from "../lib/validateBody";
+import { requireParam } from "../lib/requireParam";
 import { prisma } from "../db";
 import { Role } from "../generated/prisma/enums";
 
@@ -23,6 +24,7 @@ const userSelect = {
 
 usersRouter.get("/", async (_req, res) => {
   const users = await prisma.user.findMany({
+    where: { deletedAt: null },
     select: userSelect,
     orderBy: { createdAt: "asc" },
   });
@@ -65,12 +67,8 @@ usersRouter.patch("/:id", async (req, res) => {
   if (data === null) return;
 
   const { name, email, password } = data;
-  const { id } = req.params;
-
-  if (typeof id !== "string") {
-    res.status(400).json({ error: "Invalid user id" });
-    return;
-  }
+  const id = requireParam("id", req, res);
+  if (id === null) return;
 
   const hashedPassword = password ? await hashPassword(password) : null;
 
@@ -93,4 +91,32 @@ usersRouter.patch("/:id", async (req, res) => {
   ]);
 
   res.json({ user });
+});
+
+usersRouter.delete("/:id", async (req, res) => {
+  const id = requireParam("id", req, res);
+  if (id === null) return;
+
+  const target = await prisma.user.findUnique({
+    where: { id },
+    select: { role: true, deletedAt: true },
+  });
+
+  if (!target || target.deletedAt) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+  if (target.role === Role.admin) {
+    res.status(403).json({ error: "Admins cannot be deleted" });
+    return;
+  }
+
+  // Soft delete: keep the row (filtered out of GET /users), but revoke access
+  // by dropping any live sessions.
+  await prisma.$transaction([
+    prisma.user.update({ where: { id }, data: { deletedAt: new Date() } }),
+    prisma.session.deleteMany({ where: { userId: id } }),
+  ]);
+
+  res.status(204).end();
 });

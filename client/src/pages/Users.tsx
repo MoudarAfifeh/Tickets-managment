@@ -19,7 +19,8 @@ export type UserListItem = {
 // Drives the single <UserDialog>: `null` = closed, otherwise which flow it runs.
 export type UserDialogMode =
   | { type: "create" }
-  | { type: "edit"; user: UserListItem };
+  | { type: "edit"; user: UserListItem }
+  | { type: "delete"; user: UserListItem };
 
 async function fetchUsers(): Promise<UserListItem[]> {
   const res = await api.get<{ users: UserListItem[] }>("/users");
@@ -58,6 +59,7 @@ function Users() {
             users={users}
             isPending={isPending}
             onEdit={(user) => setDialogMode({ type: "edit", user })}
+            onDelete={(user) => setDialogMode({ type: "delete", user })}
           />
         )}
       </div>
