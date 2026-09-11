@@ -7,6 +7,7 @@ import { attachSession } from "./middleware/session";
 import { authLimiter } from "./middleware/authLimiter";
 import { errorHandler } from "./middleware/errorHandler";
 import { usersRouter } from "./routes/users";
+import { webhooksRouter } from "./routes/webhooks";
 import { prisma } from "./db";
 
 const app = express();
@@ -32,6 +33,7 @@ app.get("/api/health", async (_req, res) => {
 });
 
 app.use("/api/users", usersRouter);
+app.use("/api/webhooks", webhooksRouter);
 
 app.use(errorHandler);
 

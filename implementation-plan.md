@@ -32,8 +32,8 @@ Assumptions carried in from `project-scope.md`'s still-open questions (flagged i
 
 ## Phase 2: Ticket Data Model & Manual Management
 
-- [ ] Prisma schema: `Ticket` (id, subject, status enum, category enum, studentEmail, assignedAgentId, createdAt, updatedAt)
-- [ ] Prisma schema: `Message` (id, ticketId, sender type, body, createdAt) — the thread
+- [x] Prisma schema: `Ticket` — self-contained (id, subject, body, bodyHtml?, status enum @default(open), category enum @default(general_question), senderName?, senderEmail, assignedToId? → User, createdAt, updatedAt)
+- [~] Prisma schema: `Message` — **dropped**; `Ticket` is self-contained, no separate thread model (revisit if/when outbound replies need a stored conversation)
 - [ ] Backend: create ticket endpoint (manual, for testing before email ingestion exists)
 - [ ] Backend: list tickets endpoint (filter by status/category, sort)
 - [ ] Backend: get ticket detail endpoint (with message thread)
@@ -44,10 +44,10 @@ Assumptions carried in from `project-scope.md`'s still-open questions (flagged i
 
 ## Phase 3: Email Ingestion & Outbound Replies
 
-- [ ] Configure SendGrid/Mailgun inbound parse webhook
-- [ ] Backend: inbound webhook endpoint (verify request signature)
-- [ ] Parse inbound email → create `Ticket` + first `Message`
-- [ ] Threading: match reply to existing open ticket (e.g. via reference token in subject) vs. create new ticket
+- [ ] Configure SendGrid/Mailgun inbound parse webhook — no provider wired yet; `POST /api/webhooks/inbound-email` takes a provider-neutral JSON payload, a provider adapter is a later change
+- [x] Backend: inbound webhook endpoint — `POST /api/webhooks/inbound-email`, gated by the shared `WEBHOOK_SECRET` (`x-webhook-secret` header or `?secret=`); provider signature verification still TODO
+- [x] Parse inbound email → create a self-contained `Ticket` (no `Message`)
+- [x] Threading: strip `Re:`/`Fwd:` prefix, fold into an existing open ticket from the same sender with the same subject (case-insensitive); else create a new one
 - [ ] Backend: outbound send endpoint (agent reply → actual email via SendGrid/Mailgun)
 - [ ] Decide & implement attachment handling (store + link, or explicitly drop for v1)
 

@@ -28,19 +28,19 @@ enum TicketCategory {
 }
 
 model User {
-  id            String    @id @default(uuid())
-  email         String    @unique
-  role          Role      @default(agent)
-  active        Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  sessions      Session[]
-  tickets       Ticket[]  @relation("AssignedAgent")
-  name          String
-  emailVerified Boolean   @default(false)
-  image         String?
-  updatedAt     DateTime  @updatedAt
-  accounts      Account[]
-  deletedAt     DateTime?
+  id              String    @id @default(uuid())
+  email           String    @unique
+  role            Role      @default(agent)
+  active          Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  sessions        Session[]
+  assignedTickets Ticket[]  @relation("AssignedTickets")
+  name            String
+  emailVerified   Boolean   @default(false)
+  image           String?
+  updatedAt       DateTime  @updatedAt
+  accounts        Account[]
+  deletedAt       DateTime?
 
   @@map("user")
 }
@@ -62,31 +62,23 @@ model Session {
 }
 
 model Ticket {
-  id              String         @id @default(uuid())
-  subject         String
-  status          TicketStatus   @default(open)
-  category        TicketCategory
-  studentEmail    String
-  assignedAgentId String?
-  assignedAgent   User?          @relation("AssignedAgent", fields: [assignedAgentId], references: [id])
-  messages        Message[]
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-}
+  id           String         @id @default(uuid())
+  subject      String
+  // Plain-text body of the originating email.
+  body         String
+  // Original HTML body, when the email had one.
+  bodyHtml     String?
+  status       TicketStatus   @default(open)
+  category     TicketCategory @default(general_question)
+  // Display name of the sender; the email need not carry one.
+  senderName   String?
+  senderEmail  String
+  assignedToId String?
+  assignedTo   User?          @relation("AssignedTickets", fields: [assignedToId], references: [id])
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
 
-enum SenderType {
-  student
-  agent
-  ai
-}
-
-model Message {
-  id        String     @id @default(uuid())
-  ticketId  String
-  ticket    Ticket     @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  sender    SenderType
-  body      String
-  createdAt DateTime   @default(now())
+  @@map("ticket")
 }
 
 model Account {
