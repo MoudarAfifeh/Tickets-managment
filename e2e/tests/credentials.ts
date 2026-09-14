@@ -16,3 +16,4 @@ export const ADMIN_EMAIL = requireEnv("ADMIN_EMAIL");
 export const ADMIN_PASSWORD = requireEnv("ADMIN_PASSWORD");
 export const AGENT_EMAIL = requireEnv("AGENT_EMAIL");
 export const AGENT_PASSWORD = requireEnv("AGENT_PASSWORD");
+export const WEBHOOK_SECRET = requireEnv("WEBHOOK_SECRET");
