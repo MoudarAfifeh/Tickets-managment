@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { inboundEmailSchema, TicketCategory, TicketStatus } from "code";
+import { inboundEmailSchema } from "code";
 import { requireWebhookSecret } from "../middleware/requireWebhookSecret";
 import { parseBody } from "../lib/validateBody";
 import { prisma } from "../db";
@@ -37,7 +37,7 @@ webhooksRouter.post(
 
     const existing = await prisma.ticket.findFirst({
       where: {
-        status: TicketStatus.open,
+        status: "open",
         senderEmail: data.from,
         subject: { equals: subject, mode: "insensitive" },
       },
@@ -56,8 +56,8 @@ webhooksRouter.post(
         bodyHtml: data.bodyHtml ?? null,
         senderEmail: data.from,
         senderName: data.fromName ?? null,
-        status: TicketStatus.open,
-        category: TicketCategory.general_question,
+        status: "open",
+        category: "general_question",
       },
     });
 

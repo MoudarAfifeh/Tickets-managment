@@ -5,7 +5,7 @@ import {
   RequireAuth,
 } from "./components/ProtectedRoute";
 import Login from "./pages/Login";
-import Home from "./pages/Home";
+import Tickets from "./pages/Tickets";
 import Users from "./pages/Users";
 
 function App() {
@@ -23,7 +23,7 @@ function App() {
         path="/"
         element={
           <RequireAuth>
-            <Home />
+            <Tickets />
           </RequireAuth>
         }
       />

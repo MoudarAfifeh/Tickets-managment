@@ -11,6 +11,7 @@
     "prisma:migrate": "bunx --bun prisma migrate dev",
     "prisma:studio": "bunx --bun prisma studio",
     "prisma:seed": "bunx --bun prisma db seed",
+    "db:seed:fake": "bun prisma/seed-fake-data.ts",
     "db:test:migrate": "NODE_ENV=test bunx --bun prisma migrate deploy",
     "db:test:seed": "NODE_ENV=test bunx --bun prisma db seed"
   },
