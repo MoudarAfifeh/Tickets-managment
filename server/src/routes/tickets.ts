@@ -36,7 +36,8 @@ ticketsRouter.get("/", async (req, res) => {
     });
     return;
   }
-  const { sortBy, sortOrder, status, category, search } = parsed.data;
+  const { sortBy, sortOrder, status, category, search, page, pageSize } =
+    parsed.data;
 
   const where: Prisma.TicketWhereInput = {
     ...(status && { status }),
@@ -50,11 +51,16 @@ ticketsRouter.get("/", async (req, res) => {
     }),
   };
 
-  const tickets = await prisma.ticket.findMany({
-    select: ticketListSelect,
-    where,
-    orderBy: ticketOrderBy(sortBy, sortOrder),
-  });
+  const [tickets, total] = await Promise.all([
+    prisma.ticket.findMany({
+      select: ticketListSelect,
+      where,
+      orderBy: ticketOrderBy(sortBy, sortOrder),
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.ticket.count({ where }),
+  ]);
 
-  res.json({ tickets });
+  res.json({ tickets, total, page, pageSize });
 });

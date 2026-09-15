@@ -1,13 +1,15 @@
-import { useQuery } from "@tanstack/react-query";
-import type { SortingState } from "@tanstack/react-table";
-import { useEffect, useState } from "react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import type { OnChangeFn, SortingState } from "@tanstack/react-table";
+import { useState } from "react";
 import type { TicketCategory, TicketSortField, TicketStatus } from "code";
 import NavBar from "../components/NavBar";
 import TicketsTable from "../components/TicketsTable";
 import TicketFilters, {
   type TicketFiltersValue,
 } from "../components/TicketFilters";
+import TicketsPagination from "../components/TicketsPagination";
 import { api } from "@/lib/api";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
 export type TicketListItem = {
   id: string;
@@ -20,13 +22,20 @@ export type TicketListItem = {
   createdAt: string;
 };
 
+type TicketListResponse = {
+  tickets: TicketListItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
 const DEFAULT_FILTERS: TicketFiltersValue = {
   status: "all",
   category: "all",
   search: "",
 };
 
-const SEARCH_DEBOUNCE_MS = 300;
+const PAGE_SIZE = 10;
 
 async function fetchTickets(
   sortBy: TicketSortField,
@@ -34,17 +43,20 @@ async function fetchTickets(
   status: TicketStatus | "all",
   category: TicketCategory | "all",
   search: string,
-): Promise<TicketListItem[]> {
-  const res = await api.get<{ tickets: TicketListItem[] }>("/tickets", {
+  page: number,
+): Promise<TicketListResponse> {
+  const res = await api.get<TicketListResponse>("/tickets", {
     params: {
       sortBy,
       sortOrder,
       status: status === "all" ? undefined : status,
       category: category === "all" ? undefined : category,
       search: search || undefined,
+      page,
+      pageSize: PAGE_SIZE,
     },
   });
-  return res.data.tickets;
+  return res.data;
 }
 
 function Tickets() {
@@ -52,24 +64,25 @@ function Tickets() {
     { id: "createdAt", desc: true },
   ]);
   const sortBy = (sorting[0]?.id ?? "createdAt") as TicketSortField;
-  const sortOrder = sorting[0] === undefined || sorting[0].desc ? "desc" : "asc";
+  const sortOrder =
+    sorting[0] === undefined || sorting[0].desc ? "desc" : "asc";
 
   const [filters, setFilters] = useState<TicketFiltersValue>(DEFAULT_FILTERS);
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(filters.search, 300);
 
-  useEffect(() => {
-    const handle = setTimeout(
-      () => setDebouncedSearch(filters.search),
-      SEARCH_DEBOUNCE_MS,
-    );
-    return () => clearTimeout(handle);
-  }, [filters.search]);
+  const [page, setPage] = useState(1);
 
-  const {
-    data: tickets,
-    error,
-    isPending,
-  } = useQuery({
+  const handleSortingChange: OnChangeFn<SortingState> = (updater) => {
+    setSorting(updater);
+    setPage(1);
+  };
+
+  const handleFiltersChange = (next: TicketFiltersValue) => {
+    setFilters(next);
+    setPage(1);
+  };
+
+  const { data, error, isPending } = useQuery({
     queryKey: [
       "tickets",
       sortBy,
@@ -77,6 +90,7 @@ function Tickets() {
       filters.status,
       filters.category,
       debouncedSearch,
+      page,
     ],
     queryFn: () =>
       fetchTickets(
@@ -85,7 +99,9 @@ function Tickets() {
         filters.status,
         filters.category,
         debouncedSearch,
+        page,
       ),
+    placeholderData: keepPreviousData,
   });
 
   return (
@@ -96,17 +112,25 @@ function Tickets() {
           Tickets
         </div>
 
-        <TicketFilters value={filters} onChange={setFilters} />
+        <TicketFilters value={filters} onChange={handleFiltersChange} />
 
         {error && <p className="text-sm text-destructive">{error.message}</p>}
 
         {!error && (
-          <TicketsTable
-            tickets={tickets}
-            isPending={isPending}
-            sorting={sorting}
-            onSortingChange={setSorting}
-          />
+          <>
+            <TicketsTable
+              tickets={data?.tickets}
+              isPending={isPending}
+              sorting={sorting}
+              onSortingChange={handleSortingChange}
+            />
+            <TicketsPagination
+              page={page}
+              pageSize={PAGE_SIZE}
+              total={data?.total ?? 0}
+              onPageChange={setPage}
+            />
+          </>
         )}
       </div>
     </div>
