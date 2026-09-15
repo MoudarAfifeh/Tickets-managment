@@ -14,3 +14,25 @@ export const inboundEmailSchema = z.object({
 });
 
 export type InboundEmailInput = z.infer<typeof inboundEmailSchema>;
+
+/**
+ * Columns `GET /api/tickets` can sort by. `assignedTo` sorts on the related
+ * user's name.
+ */
+export const ticketSortFields = [
+  "subject",
+  "senderEmail",
+  "category",
+  "status",
+  "assignedTo",
+  "createdAt",
+] as const;
+
+export type TicketSortField = (typeof ticketSortFields)[number];
+
+export const ticketListQuerySchema = z.object({
+  sortBy: z.enum(ticketSortFields).default("createdAt"),
+  sortOrder: z.enum(["asc", "desc"]).default("desc"),
+});
+
+export type TicketListQuery = z.infer<typeof ticketListQuerySchema>;

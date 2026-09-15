@@ -1,6 +1,8 @@
 import { Router } from "express";
+import { ticketListQuerySchema } from "code";
 import { requireAuth } from "../middleware/requireAuth";
 import { prisma } from "../db";
+import { Prisma } from "../generated/prisma/client";
 
 export const ticketsRouter = Router();
 
@@ -18,10 +20,27 @@ const ticketListSelect = {
   assignedTo: { select: { id: true, name: true } },
 } as const;
 
-ticketsRouter.get("/", async (_req, res) => {
+function ticketOrderBy(
+  sortBy: string,
+  sortOrder: "asc" | "desc",
+): Prisma.TicketOrderByWithRelationInput {
+  if (sortBy === "assignedTo") return { assignedTo: { name: sortOrder } };
+  return { [sortBy]: sortOrder };
+}
+
+ticketsRouter.get("/", async (req, res) => {
+  const parsed = ticketListQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({
+      error: parsed.error.issues[0]?.message ?? "Invalid input",
+    });
+    return;
+  }
+  const { sortBy, sortOrder } = parsed.data;
+
   const tickets = await prisma.ticket.findMany({
     select: ticketListSelect,
-    orderBy: { createdAt: "desc" },
+    orderBy: ticketOrderBy(sortBy, sortOrder),
   });
 
   res.json({ tickets });
