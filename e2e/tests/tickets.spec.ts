@@ -52,6 +52,40 @@ function rowFor(page: Page, text: string) {
   return page.getByRole("row").filter({ hasText: text });
 }
 
+function searchInput(page: Page) {
+  return page.getByPlaceholder("Search subject or sender...");
+}
+
+// TicketFilters renders the search Input first, then the Status Select,
+// then the Category Select — Base UI Select triggers have role "combobox"
+// and their accessible name is the *currently selected* option's label, so
+// index into them positionally instead (stable across selection changes).
+const STATUS_COMBOBOX_INDEX = 0;
+const CATEGORY_COMBOBOX_INDEX = 1;
+
+async function selectFilterOption(
+  page: Page,
+  comboboxIndex: number,
+  optionName: string,
+) {
+  await page.getByRole("combobox").nth(comboboxIndex).click();
+  await page.getByRole("option", { name: optionName, exact: true }).click();
+}
+
+// The Subject column is rendered first, so a row's first cell is its
+// subject. Returns the subject text of every row currently matching
+// `filterText`, in DOM (render) order.
+async function subjectColumnValues(page: Page, filterText: string) {
+  const rows = page.getByRole("row").filter({ hasText: filterText });
+  const count = await rows.count();
+  const values: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const text = await rows.nth(i).getByRole("cell").first().textContent();
+    values.push(text ?? "");
+  }
+  return values;
+}
+
 test.describe("GET /api/tickets (API)", () => {
   test("without auth returns 401", async ({ request }) => {
     const res = await request.get("/api/tickets");
@@ -134,6 +168,222 @@ test.describe("Ticket list (/)", () => {
     await expect(
       row.getByText(ticket.senderEmail, { exact: true }),
     ).toBeVisible();
+  });
+});
+
+test.describe("Ticket list sorting", () => {
+  test.use({ storageState: ADMIN_STORAGE_STATE });
+
+  test("clicking a column header sorts ascending, clicking again sorts descending", async ({
+    page,
+    request,
+  }) => {
+    const token = unique();
+    const subjectFor = (label: string) => `Sorting test ${token} ${label}`;
+    // Seed out of alphabetical order so ascending/descending are distinguishable.
+    await seedTicket(request, { subject: subjectFor("Bravo") });
+    await seedTicket(request, { subject: subjectFor("Alpha") });
+    await seedTicket(request, { subject: subjectFor("Charlie") });
+
+    await page.goto("/");
+    await searchInput(page).fill(`Sorting test ${token}`);
+
+    // Wait for the search to narrow the table to exactly the 3 seeded rows.
+    await expect(page.getByRole("row").filter({ hasText: token })).toHaveCount(
+      3,
+    );
+
+    const subjectHeader = page.getByRole("columnheader", {
+      name: "Subject",
+      exact: true,
+    });
+
+    await subjectHeader.getByRole("button").click();
+    await expect(subjectHeader.locator("svg.lucide-arrow-up")).toBeVisible();
+    await expect.poll(() => subjectColumnValues(page, token)).toEqual([
+      subjectFor("Alpha"),
+      subjectFor("Bravo"),
+      subjectFor("Charlie"),
+    ]);
+
+    await subjectHeader.getByRole("button").click();
+    await expect(
+      subjectHeader.locator("svg.lucide-arrow-down"),
+    ).toBeVisible();
+    await expect.poll(() => subjectColumnValues(page, token)).toEqual([
+      subjectFor("Charlie"),
+      subjectFor("Bravo"),
+      subjectFor("Alpha"),
+    ]);
+  });
+});
+
+test.describe("Ticket list filtering", () => {
+  test.use({ storageState: ADMIN_STORAGE_STATE });
+
+  test("status filter excludes the seeded open ticket for a different status, includes it for Open / All statuses", async ({
+    page,
+    request,
+  }) => {
+    const ticket = await seedTicket(request);
+
+    await page.goto("/");
+    // Scope the table to just this ticket via search, so the filter
+    // assertions below aren't at the mercy of pagination/other rows.
+    await searchInput(page).fill(ticket.subject);
+    await expect(rowFor(page, ticket.subject)).toBeVisible();
+
+    await selectFilterOption(page, STATUS_COMBOBOX_INDEX, "Resolved");
+    await expect(rowFor(page, ticket.subject)).toHaveCount(0);
+
+    await selectFilterOption(page, STATUS_COMBOBOX_INDEX, "Open");
+    await expect(rowFor(page, ticket.subject)).toBeVisible();
+
+    await selectFilterOption(page, STATUS_COMBOBOX_INDEX, "All statuses");
+    await expect(rowFor(page, ticket.subject)).toBeVisible();
+  });
+
+  test("category filter excludes the seeded general-question ticket for a different category, includes it for General question / All categories", async ({
+    page,
+    request,
+  }) => {
+    const ticket = await seedTicket(request);
+
+    await page.goto("/");
+    await searchInput(page).fill(ticket.subject);
+    await expect(rowFor(page, ticket.subject)).toBeVisible();
+
+    await selectFilterOption(
+      page,
+      CATEGORY_COMBOBOX_INDEX,
+      "Technical question",
+    );
+    await expect(rowFor(page, ticket.subject)).toHaveCount(0);
+
+    await selectFilterOption(page, CATEGORY_COMBOBOX_INDEX, "General question");
+    await expect(rowFor(page, ticket.subject)).toBeVisible();
+
+    await selectFilterOption(page, CATEGORY_COMBOBOX_INDEX, "All categories");
+    await expect(rowFor(page, ticket.subject)).toBeVisible();
+  });
+});
+
+test.describe("Ticket list search", () => {
+  test.use({ storageState: ADMIN_STORAGE_STATE });
+
+  test("narrows the table to rows whose subject matches the typed text", async ({
+    page,
+    request,
+  }) => {
+    const token = unique();
+    const matching = await seedTicket(request, {
+      subject: `Search test ${token} match`,
+    });
+    const other = await seedTicket(request, {
+      subject: `Search test ${token} other`,
+    });
+
+    await page.goto("/");
+    await searchInput(page).fill(`${token} match`);
+
+    await expect(rowFor(page, matching.subject)).toBeVisible();
+    await expect(rowFor(page, other.subject)).toHaveCount(0);
+  });
+
+  test("matches by sender name", async ({ page, request }) => {
+    const token = unique();
+    const senderName = `E2E Search Sender ${token}`;
+    const ticket = await seedTicket(request, { fromName: senderName });
+
+    await page.goto("/");
+    await searchInput(page).fill(senderName);
+
+    await expect(rowFor(page, ticket.subject)).toBeVisible();
+  });
+
+  test("matches by sender email", async ({ page, request }) => {
+    const ticket = await seedTicket(request);
+
+    await page.goto("/");
+    await searchInput(page).fill(ticket.senderEmail);
+
+    await expect(rowFor(page, ticket.subject)).toBeVisible();
+  });
+});
+
+test.describe("Ticket list pagination", () => {
+  test.use({ storageState: ADMIN_STORAGE_STATE });
+
+  test("paginates search-scoped results with correct counts, boundaries, and resets to page 1 on sort/filter change", async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(120_000);
+
+    const token = unique();
+    const TOTAL = 11;
+    const tickets: Awaited<ReturnType<typeof seedTicket>>[] = [];
+    for (let i = 1; i <= TOTAL; i++) {
+      tickets.push(
+        await seedTicket(request, {
+          subject: `Pagination test ${token} #${i}`,
+        }),
+      );
+    }
+
+    await page.goto("/");
+    await searchInput(page).fill(`Pagination test ${token}`);
+
+    const scopedRows = page.getByRole("row").filter({ hasText: token });
+
+    // Page 1: first 10 of 11 rows, Previous disabled, Next enabled.
+    await expect(scopedRows).toHaveCount(10);
+    await expect(
+      page.getByText(`Showing 1-10 of ${TOTAL}`, { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText("Page 1 of 2", { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Previous" }),
+    ).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Next" })).toBeEnabled();
+
+    const page1Subjects = await subjectColumnValues(page, token);
+
+    // Advance to page 2: the remaining 1 row, Next disabled, Previous enabled.
+    await page.getByRole("button", { name: "Next" }).click();
+    await expect(scopedRows).toHaveCount(1);
+    await expect(
+      page.getByText(`Showing 11-${TOTAL} of ${TOTAL}`, { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText("Page 2 of 2", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Next" })).toBeDisabled();
+    await expect(
+      page.getByRole("button", { name: "Previous" }),
+    ).toBeEnabled();
+
+    const page2Subjects = await subjectColumnValues(page, token);
+
+    expect(page1Subjects).toHaveLength(10);
+    expect(page2Subjects).toHaveLength(1);
+    expect([...page1Subjects, ...page2Subjects].sort()).toEqual(
+      tickets.map((t) => t.subject).sort(),
+    );
+
+    // Changing the sort while on page 2 resets back to page 1.
+    await page
+      .getByRole("columnheader", { name: "Subject", exact: true })
+      .getByRole("button")
+      .click();
+    await expect(page.getByText("Page 1 of 2", { exact: true })).toBeVisible();
+
+    // Changing a filter also resets back to page 1 — here to a status with
+    // no matches (only open tickets can be seeded), so it should land on a
+    // single, empty page.
+    await page.getByRole("button", { name: "Next" }).click();
+    await expect(page.getByText("Page 2 of 2", { exact: true })).toBeVisible();
+    await selectFilterOption(page, STATUS_COMBOBOX_INDEX, "Resolved");
+    await expect(page.getByText("Page 1 of 1", { exact: true })).toBeVisible();
+    await expect(page.getByText("No tickets", { exact: true })).toBeVisible();
   });
 });
 
