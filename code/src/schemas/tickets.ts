@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { ticketCategoryValues } from "../constants/ticket-category";
+import { ticketStatusValues } from "../constants/ticket-status";
 
 /**
  * Inbound support email as handed to `POST /api/webhooks/inbound-email`.
@@ -33,6 +35,9 @@ export type TicketSortField = (typeof ticketSortFields)[number];
 export const ticketListQuerySchema = z.object({
   sortBy: z.enum(ticketSortFields).default("createdAt"),
   sortOrder: z.enum(["asc", "desc"]).default("desc"),
+  status: z.enum(ticketStatusValues).optional(),
+  category: z.enum(ticketCategoryValues).optional(),
+  search: z.string().trim().min(1).optional(),
 });
 
 export type TicketListQuery = z.infer<typeof ticketListQuerySchema>;

@@ -36,10 +36,23 @@ ticketsRouter.get("/", async (req, res) => {
     });
     return;
   }
-  const { sortBy, sortOrder } = parsed.data;
+  const { sortBy, sortOrder, status, category, search } = parsed.data;
+
+  const where: Prisma.TicketWhereInput = {
+    ...(status && { status }),
+    ...(category && { category }),
+    ...(search && {
+      OR: [
+        { subject: { contains: search, mode: "insensitive" } },
+        { senderName: { contains: search, mode: "insensitive" } },
+        { senderEmail: { contains: search, mode: "insensitive" } },
+      ],
+    }),
+  };
 
   const tickets = await prisma.ticket.findMany({
     select: ticketListSelect,
+    where,
     orderBy: ticketOrderBy(sortBy, sortOrder),
   });
 

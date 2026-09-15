@@ -22,7 +22,7 @@ import type { TicketListItem } from "@/pages/Tickets";
 const SKELETON_ROWS = 5;
 const SKELETON_WIDTHS = ["w-48", "w-40", "w-28", "w-16", "w-24", "w-20"];
 
-const CATEGORY_LABELS: Record<TicketListItem["category"], string> = {
+export const CATEGORY_LABELS: Record<TicketListItem["category"], string> = {
   general_question: "General question",
   technical_question: "Technical question",
   refund_request: "Refund request",

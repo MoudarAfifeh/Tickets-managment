@@ -1,9 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import type { SortingState } from "@tanstack/react-table";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { TicketCategory, TicketSortField, TicketStatus } from "code";
 import NavBar from "../components/NavBar";
 import TicketsTable from "../components/TicketsTable";
+import TicketFilters, {
+  type TicketFiltersValue,
+} from "../components/TicketFilters";
 import { api } from "@/lib/api";
 
 export type TicketListItem = {
@@ -17,12 +20,29 @@ export type TicketListItem = {
   createdAt: string;
 };
 
+const DEFAULT_FILTERS: TicketFiltersValue = {
+  status: "all",
+  category: "all",
+  search: "",
+};
+
+const SEARCH_DEBOUNCE_MS = 300;
+
 async function fetchTickets(
   sortBy: TicketSortField,
   sortOrder: "asc" | "desc",
+  status: TicketStatus | "all",
+  category: TicketCategory | "all",
+  search: string,
 ): Promise<TicketListItem[]> {
   const res = await api.get<{ tickets: TicketListItem[] }>("/tickets", {
-    params: { sortBy, sortOrder },
+    params: {
+      sortBy,
+      sortOrder,
+      status: status === "all" ? undefined : status,
+      category: category === "all" ? undefined : category,
+      search: search || undefined,
+    },
   });
   return res.data.tickets;
 }
@@ -34,13 +54,38 @@ function Tickets() {
   const sortBy = (sorting[0]?.id ?? "createdAt") as TicketSortField;
   const sortOrder = sorting[0] === undefined || sorting[0].desc ? "desc" : "asc";
 
+  const [filters, setFilters] = useState<TicketFiltersValue>(DEFAULT_FILTERS);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  useEffect(() => {
+    const handle = setTimeout(
+      () => setDebouncedSearch(filters.search),
+      SEARCH_DEBOUNCE_MS,
+    );
+    return () => clearTimeout(handle);
+  }, [filters.search]);
+
   const {
     data: tickets,
     error,
     isPending,
   } = useQuery({
-    queryKey: ["tickets", sortBy, sortOrder],
-    queryFn: () => fetchTickets(sortBy, sortOrder),
+    queryKey: [
+      "tickets",
+      sortBy,
+      sortOrder,
+      filters.status,
+      filters.category,
+      debouncedSearch,
+    ],
+    queryFn: () =>
+      fetchTickets(
+        sortBy,
+        sortOrder,
+        filters.status,
+        filters.category,
+        debouncedSearch,
+      ),
   });
 
   return (
@@ -50,6 +95,8 @@ function Tickets() {
         <div className="mb-4 text-lg font-medium text-gray-900 dark:text-gray-100">
           Tickets
         </div>
+
+        <TicketFilters value={filters} onChange={setFilters} />
 
         {error && <p className="text-sm text-destructive">{error.message}</p>}
 
