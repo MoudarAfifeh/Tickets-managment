@@ -70,6 +70,8 @@ AI-powered support ticket system. See `project-scope.md` for the product spec, `
 
 ## Testing
 
+**Every new feature or behavior change needs test coverage before it's considered done** — a new route, page, or user-visible flow gets Playwright e2e coverage (delegate to `e2e-test-writer`, see below); a new/changed client component or page gets a Vitest component test alongside it per the conventions below. Don't treat this as optional cleanup for later — add the test in the same change as the feature.
+
 End-to-end tests use Playwright, in its own Bun workspace at `e2e/`. **Use the `e2e-test-writer` subagent (`.claude/agents/e2e-test-writer.md`) for all e2e test work** — writing new tests, updating existing ones, or fixing a failing test — instead of writing or editing files under `e2e/` directly. That agent owns the environment setup, database-isolation, and auth/credential conventions for this workspace; delegate to it rather than duplicating that knowledge here.
 
 ### Component tests

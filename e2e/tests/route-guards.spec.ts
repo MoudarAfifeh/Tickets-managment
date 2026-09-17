@@ -14,6 +14,13 @@ test.describe("Unauthenticated route guards", () => {
     await expect(page).toHaveURL("/login");
   });
 
+  test("visiting /tickets/:id redirects to /login", async ({ page }) => {
+    // The guard fires before the ticket fetch, so any id string works —
+    // no need to seed a real ticket for this case.
+    await page.goto("/tickets/some-ticket-id");
+    await expect(page).toHaveURL("/login");
+  });
+
   test("visiting an unknown route redirects to /login", async ({ page }) => {
     await page.goto("/this-route-does-not-exist");
     await expect(page).toHaveURL("/login");

@@ -7,6 +7,7 @@ import {
   type SortingState,
 } from "@tanstack/react-table";
 import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -28,7 +29,7 @@ export const CATEGORY_LABELS: Record<TicketListItem["category"], string> = {
   refund_request: "Refund request",
 };
 
-const STATUS_VARIANT: Record<
+export const STATUS_VARIANT: Record<
   TicketListItem["status"],
   "default" | "secondary" | "outline"
 > = {
@@ -44,7 +45,9 @@ const columns = [
     id: "subject",
     header: "Subject",
     cell: (info) => (
-      <span className="font-medium">{info.getValue()}</span>
+      <Link to={`/tickets/${info.row.original.id}`} className="font-medium">
+        {info.getValue()}
+      </Link>
     ),
   }),
   columnHelper.accessor((row) => row.senderName || row.senderEmail, {

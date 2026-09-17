@@ -18,6 +18,10 @@ function unique() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 async function seedTicket(
   request: APIRequestContext,
   overrides: { fromName?: string; subject?: string; body?: string } = {},
@@ -384,6 +388,89 @@ test.describe("Ticket list pagination", () => {
     await selectFilterOption(page, STATUS_COMBOBOX_INDEX, "Resolved");
     await expect(page.getByText("Page 1 of 1", { exact: true })).toBeVisible();
     await expect(page.getByText("No tickets", { exact: true })).toBeVisible();
+  });
+});
+
+test.describe("Ticket detail (/tickets/:id)", () => {
+  test.use({ storageState: ADMIN_STORAGE_STATE });
+
+  test("clicking a ticket's subject on the list navigates to its detail page with full info, and Back to tickets returns to /", async ({
+    page,
+    request,
+  }) => {
+    const fromName = `E2E Detail Sender ${unique()}`;
+    const ticket = await seedTicket(request, { fromName });
+
+    await page.goto("/");
+    await rowFor(page, ticket.subject).getByRole("link", {
+      name: ticket.subject,
+    }).click();
+
+    await expect(page).toHaveURL(`/tickets/${ticket.id}`);
+
+    // Subject as the card title.
+    await expect(
+      page.getByText(ticket.subject, { exact: true }),
+    ).toBeVisible();
+
+    // Status and category badges.
+    await expect(page.getByText("open", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText("General question", { exact: true }),
+    ).toBeVisible();
+
+    // "From {name} <{email}> on {date}" line.
+    await expect(
+      page.getByText(
+        new RegExp(
+          `From ${escapeRegExp(fromName)} <${escapeRegExp(ticket.senderEmail)}> on`,
+        ),
+      ),
+    ).toBeVisible();
+
+    // The webhook never assigns a ticket.
+    await expect(
+      page.getByText("Assigned to Unassigned", { exact: true }),
+    ).toBeVisible();
+
+    // Plain-text body.
+    await expect(page.getByText(ticket.body, { exact: true })).toBeVisible();
+
+    await page.getByRole("link", { name: "Back to tickets" }).click();
+    await expect(page).toHaveURL("/");
+  });
+
+  test("direct navigation to a ticket's URL renders its detail (no name provided falls back to email-only From line)", async ({
+    page,
+    request,
+  }) => {
+    const ticket = await seedTicket(request);
+
+    await page.goto(`/tickets/${ticket.id}`);
+
+    await expect(
+      page.getByText(ticket.subject, { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText(ticket.body, { exact: true })).toBeVisible();
+    await expect(
+      page.getByText(
+        new RegExp(`From <${escapeRegExp(ticket.senderEmail)}> on`),
+      ),
+    ).toBeVisible();
+  });
+
+  test("a nonexistent ticket id shows the 404 error from the API", async ({
+    page,
+  }) => {
+    await page.goto(`/tickets/does-not-exist-${unique()}`);
+
+    // TicketDetail renders the raw axios error message on failure rather
+    // than a friendly "not found" state — see TicketDetail.tsx's
+    // `{error && <p>{error.message}</p>}`. Asserted here as documented
+    // current behavior, not necessarily the desired UX.
+    await expect(
+      page.getByText("Request failed with status code 404", { exact: true }),
+    ).toBeVisible();
   });
 });
 
