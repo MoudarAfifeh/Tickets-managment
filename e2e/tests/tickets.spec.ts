@@ -419,13 +419,10 @@ test.describe("Ticket detail (/tickets/:id)", () => {
       page.getByText("General question", { exact: true }),
     ).toBeVisible();
 
-    // "From {name} <{email}> on {date}" line.
+    // Header identity: display name, plus a separate "{email} · {date}" line.
+    await expect(page.getByText(fromName, { exact: true })).toBeVisible();
     await expect(
-      page.getByText(
-        new RegExp(
-          `From ${escapeRegExp(fromName)} <${escapeRegExp(ticket.senderEmail)}> on`,
-        ),
-      ),
+      page.getByText(new RegExp(`^${escapeRegExp(ticket.senderEmail)} ·`)),
     ).toBeVisible();
 
     // The webhook never assigns a ticket.
@@ -440,7 +437,7 @@ test.describe("Ticket detail (/tickets/:id)", () => {
     await expect(page).toHaveURL("/");
   });
 
-  test("direct navigation to a ticket's URL renders its detail (no name provided falls back to email-only From line)", async ({
+  test("direct navigation to a ticket's URL renders its detail (no name provided falls back to email as the display identity)", async ({
     page,
     request,
   }) => {
@@ -452,24 +449,35 @@ test.describe("Ticket detail (/tickets/:id)", () => {
       page.getByText(ticket.subject, { exact: true }),
     ).toBeVisible();
     await expect(page.getByText(ticket.body, { exact: true })).toBeVisible();
+    // The "{email} · {date}" line always shows the email...
     await expect(
-      page.getByText(
-        new RegExp(`From <${escapeRegExp(ticket.senderEmail)}> on`),
-      ),
+      page.getByText(new RegExp(`^${escapeRegExp(ticket.senderEmail)} ·`)),
     ).toBeVisible();
+    // ...and with no senderName, the header identity also falls back to the
+    // email, so it now appears twice: once as that identity, once as the
+    // "Sender" mailto link in the sidebar.
+    await expect(
+      page.getByText(ticket.senderEmail, { exact: true }),
+    ).toHaveCount(2);
   });
 
-  test("a nonexistent ticket id shows the 404 error from the API", async ({
+  test("a nonexistent ticket id shows a not-found state", async ({
     page,
   }) => {
     await page.goto(`/tickets/does-not-exist-${unique()}`);
 
-    // TicketDetail renders the raw axios error message on failure rather
-    // than a friendly "not found" state — see TicketDetail.tsx's
-    // `{error && <p>{error.message}</p>}`. Asserted here as documented
-    // current behavior, not necessarily the desired UX.
+    // TicketDetail.tsx distinguishes a 404 (axios.isAxiosError(error) &&
+    // error.response?.status === 404) and renders this friendly copy
+    // instead of the raw axios error message (which is what non-404
+    // errors still fall back to).
     await expect(
-      page.getByText("Request failed with status code 404", { exact: true }),
+      page.getByText("Ticket not found", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(
+        "This ticket doesn't exist or may have been removed.",
+        { exact: true },
+      ),
     ).toBeVisible();
   });
 });

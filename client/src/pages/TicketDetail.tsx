@@ -111,6 +111,11 @@ function TicketDetailPage() {
     queryKey: ["ticket", id],
     queryFn: () => fetchTicket(id!),
     enabled: !!id,
+    // Don't burn through retries on a definitive 404 (or other 4xx) before
+    // showing the error state — only retry on network/5xx failures.
+    retry: (failureCount, err) =>
+      !(axios.isAxiosError(err) && err.response && err.response.status < 500) &&
+      failureCount < 3,
   });
 
   const notFound = axios.isAxiosError(error) && error.response?.status === 404;
