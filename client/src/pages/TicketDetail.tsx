@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import {
   ArrowLeft,
@@ -10,13 +10,22 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import type { TicketCategory, TicketStatus } from "code";
 import NavBar from "../components/NavBar";
 import { CATEGORY_LABELS, STATUS_VARIANT } from "../components/TicketsTable";
 import { api } from "@/lib/api";
+import { getServerErrorMessage } from "@/lib/serverError";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 
 type TicketDetail = {
@@ -32,10 +41,32 @@ type TicketDetail = {
   updatedAt: string;
 };
 
+type Assignee = { id: string; name: string };
+
 async function fetchTicket(id: string): Promise<TicketDetail> {
   const res = await api.get<{ ticket: TicketDetail }>(`/tickets/${id}`);
   return res.data.ticket;
 }
+
+async function fetchAssignees(): Promise<Assignee[]> {
+  const res = await api.get<{ users: Assignee[] }>("/tickets/assignees");
+  return res.data.users;
+}
+
+async function assignTicket(
+  id: string,
+  assignedToId: string | null,
+): Promise<TicketDetail> {
+  const res = await api.patch<{ ticket: TicketDetail }>(
+    `/tickets/${id}/assign`,
+    { assignedToId },
+  );
+  return res.data.ticket;
+}
+
+// Base UI's Select doesn't accept an empty-string item value, so the
+// "Unassigned" option uses this sentinel and gets mapped back to null.
+const UNASSIGNED = "__unassigned__";
 
 function initials(name: string) {
   return name
@@ -106,6 +137,8 @@ function TicketDetailSkeleton() {
 
 function TicketDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const queryClient = useQueryClient();
+  const [assignError, setAssignError] = useState("");
 
   const { data: ticket, error, isPending } = useQuery({
     queryKey: ["ticket", id],
@@ -116,6 +149,22 @@ function TicketDetailPage() {
     retry: (failureCount, err) =>
       !(axios.isAxiosError(err) && err.response && err.response.status < 500) &&
       failureCount < 3,
+  });
+
+  const { data: assignees } = useQuery({
+    queryKey: ["assignees"],
+    queryFn: fetchAssignees,
+  });
+
+  const assignMutation = useMutation({
+    mutationFn: (assignedToId: string | null) =>
+      assignTicket(id!, assignedToId),
+    onSuccess: (updated) => {
+      setAssignError("");
+      queryClient.setQueryData(["ticket", id], updated);
+      queryClient.invalidateQueries({ queryKey: ["tickets"], exact: false });
+    },
+    onError: (err) => setAssignError(getServerErrorMessage(err)),
   });
 
   const notFound = axios.isAxiosError(error) && error.response?.status === 404;
@@ -199,7 +248,41 @@ function TicketDetailPage() {
                     </Badge>
                   </DetailRow>
                   <DetailRow icon={UserRound} label="Assigned to">
-                    {ticket.assignedTo?.name ?? "Unassigned"}
+                    <Select
+                      value={ticket.assignedTo?.id ?? UNASSIGNED}
+                      onValueChange={(value: string | null) =>
+                        assignMutation.mutate(
+                          value === UNASSIGNED || value === null
+                            ? null
+                            : value,
+                        )
+                      }
+                      disabled={assignMutation.isPending}
+                    >
+                      <SelectTrigger className="w-full" aria-label="Assigned to">
+                        <SelectValue>
+                          {(value: string) =>
+                            value === UNASSIGNED
+                              ? "Unassigned"
+                              : (assignees?.find((a) => a.id === value)
+                                  ?.name ?? "Unassigned")
+                          }
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={UNASSIGNED}>Unassigned</SelectItem>
+                        {assignees?.map((assignee) => (
+                          <SelectItem key={assignee.id} value={assignee.id}>
+                            {assignee.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {assignError && (
+                      <p className="mt-1 text-xs text-destructive">
+                        {assignError}
+                      </p>
+                    )}
                   </DetailRow>
                   <DetailRow icon={Mail} label="Sender">
                     <a

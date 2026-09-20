@@ -425,10 +425,14 @@ test.describe("Ticket detail (/tickets/:id)", () => {
       page.getByText(new RegExp(`^${escapeRegExp(ticket.senderEmail)} ·`)),
     ).toBeVisible();
 
-    // The webhook never assigns a ticket.
+    // The webhook never assigns a ticket. "Assigned to" is now an
+    // interactive Select (see the "Ticket assignment" describe block below),
+    // so the label and the select's displayed value are separate elements
+    // rather than one combined text node.
+    await expect(page.getByText("Assigned to", { exact: true })).toBeVisible();
     await expect(
-      page.getByText("Assigned to Unassigned", { exact: true }),
-    ).toBeVisible();
+      page.getByRole("combobox", { name: "Assigned to" }),
+    ).toContainText("Unassigned");
 
     // Plain-text body.
     await expect(page.getByText(ticket.body, { exact: true })).toBeVisible();
@@ -479,6 +483,130 @@ test.describe("Ticket detail (/tickets/:id)", () => {
         { exact: true },
       ),
     ).toBeVisible();
+  });
+});
+
+// Assigning a ticket to a user (PATCH /api/tickets/:id/assign, backed by the
+// "Assigned to" Select on the ticket detail page). The dropdown's options
+// come from GET /api/tickets/assignees, which lists every non-deleted user —
+// "Admin" and "Agent" are the only accounts guaranteed to exist in the test
+// database (seeded by server/prisma/seed.ts), so tests assign to/from the
+// seeded "Agent" rather than creating a dedicated assignee.
+test.describe("Ticket assignment (/tickets/:id)", () => {
+  test.use({ storageState: ADMIN_STORAGE_STATE });
+
+  async function selectAssignee(page: Page, optionName: string) {
+    // The assign Select is the only combobox on the ticket detail page; its
+    // trigger has a fixed aria-label ("Assigned to") independent of the
+    // currently selected value.
+    await page.getByRole("combobox", { name: "Assigned to" }).click();
+    await page.getByRole("option", { name: optionName, exact: true }).click();
+  }
+
+  test("assigning to an agent via the select is reflected on the detail page and the tickets list, and unassigning reverts both", async ({
+    page,
+    request,
+  }) => {
+    const ticket = await seedTicket(request);
+
+    await page.goto("/");
+    await rowFor(page, ticket.subject)
+      .getByRole("link", { name: ticket.subject })
+      .click();
+    await expect(page).toHaveURL(`/tickets/${ticket.id}`);
+
+    // Starts unassigned (the webhook never assigns a ticket).
+    const assignCombobox = page.getByRole("combobox", { name: "Assigned to" });
+    await expect(assignCombobox).toContainText("Unassigned");
+
+    await selectAssignee(page, "Agent");
+    await expect(assignCombobox).toContainText("Agent");
+    // No error message from the mutation.
+    await expect(page.getByText("Assignee not found")).toHaveCount(0);
+
+    // Navigate back to the list via the in-app link (no full page reload),
+    // exercising the ["tickets"] query invalidation the mutation triggers.
+    await page.getByRole("link", { name: "Back to tickets" }).click();
+    await expect(page).toHaveURL("/");
+    await expect(
+      rowFor(page, ticket.subject).getByText("Agent", { exact: true }),
+    ).toBeVisible();
+
+    // Back into the ticket: the select still shows the assignment...
+    await rowFor(page, ticket.subject)
+      .getByRole("link", { name: ticket.subject })
+      .click();
+    await expect(page).toHaveURL(`/tickets/${ticket.id}`);
+    await expect(assignCombobox).toContainText("Agent");
+
+    // ...and unassigning it reverts the select and the list row.
+    await selectAssignee(page, "Unassigned");
+    await expect(assignCombobox).toContainText("Unassigned");
+
+    await page.getByRole("link", { name: "Back to tickets" }).click();
+    await expect(page).toHaveURL("/");
+    await expect(
+      rowFor(page, ticket.subject).getByText("Unassigned", { exact: true }),
+    ).toBeVisible();
+  });
+
+  test("direct navigation to an already-assigned ticket shows the assignee in the select", async ({
+    page,
+    request,
+  }) => {
+    const ticket = await seedTicket(request);
+
+    const assigneesRes = await request.get("/api/tickets/assignees");
+    expect(assigneesRes.status()).toBe(200);
+    const { users } = (await assigneesRes.json()) as {
+      users: { id: string; name: string }[];
+    };
+    const agent = users.find((u) => u.name === "Agent");
+    expect(agent).toBeTruthy();
+
+    const assignRes = await request.patch(
+      `/api/tickets/${ticket.id}/assign`,
+      { data: { assignedToId: agent!.id } },
+    );
+    expect(assignRes.status()).toBe(200);
+
+    await page.goto(`/tickets/${ticket.id}`);
+    await expect(
+      page.getByRole("combobox", { name: "Assigned to" }),
+    ).toContainText("Agent");
+  });
+});
+
+test.describe("PATCH /api/tickets/:id/assign (API)", () => {
+  test("without auth returns 401", async ({ request }) => {
+    const res = await request.patch(
+      `/api/tickets/does-not-exist-${unique()}/assign`,
+      { data: { assignedToId: null } },
+    );
+    expect(res.status()).toBe(401);
+  });
+
+  test.describe("authenticated", () => {
+    test.use({ storageState: ADMIN_STORAGE_STATE });
+
+    test("400s for a nonexistent assignee", async ({ request }) => {
+      const ticket = await seedTicket(request);
+
+      const res = await request.patch(`/api/tickets/${ticket.id}/assign`, {
+        data: { assignedToId: `does-not-exist-${unique()}` },
+      });
+      expect(res.status()).toBe(400);
+      expect((await res.json()).error).toBe("Assignee not found");
+    });
+
+    test("404s for a nonexistent ticket", async ({ request }) => {
+      const res = await request.patch(
+        `/api/tickets/does-not-exist-${unique()}/assign`,
+        { data: { assignedToId: null } },
+      );
+      expect(res.status()).toBe(404);
+      expect((await res.json()).error).toBe("Ticket not found");
+    });
   });
 });
 

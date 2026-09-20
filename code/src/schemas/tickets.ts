@@ -43,3 +43,10 @@ export const ticketListQuerySchema = z.object({
 });
 
 export type TicketListQuery = z.infer<typeof ticketListQuerySchema>;
+
+/** Body for `PATCH /api/tickets/:id/assign`. `null` unassigns the ticket. */
+export const assignTicketSchema = z.object({
+  assignedToId: z.string().min(1).nullable(),
+});
+
+export type AssignTicketInput = z.infer<typeof assignTicketSchema>;
