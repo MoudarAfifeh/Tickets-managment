@@ -1,6 +1,7 @@
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Route, Routes } from "react-router-dom";
+import type { TicketCategory, TicketStatus } from "code";
 import TicketDetailPage from "./TicketDetail";
 import { renderWithProviders } from "@/test/render";
 
@@ -26,8 +27,8 @@ const baseTicket = {
   id: "ticket-1",
   subject: "How do I reset my password?",
   body: "I can't find the reset link anywhere, can you help?",
-  status: "open" as const,
-  category: "general_question" as const,
+  status: "open" as TicketStatus,
+  category: "general_question" as TicketCategory,
   senderName: "Alice Turner",
   senderEmail: "alice@customer.example",
   assignedTo: null as { id: string; name: string } | null,
@@ -67,15 +68,46 @@ function renderPage(ticket = baseTicket) {
   return user;
 }
 
+// The page has three comboboxes (Status, Category, Assigned to), each with
+// its own aria-label (Base UI's SelectTrigger role="combobox" doesn't get
+// "name from contents" per the ARIA accname spec, so every trigger needs an
+// explicit aria-label — see the aria-label additions in TicketDetail.tsx).
+function assignCombobox() {
+  return screen.getByRole("combobox", { name: "Assigned to" });
+}
+
+function statusCombobox() {
+  return screen.getByRole("combobox", { name: "Status" });
+}
+
+function categoryCombobox() {
+  return screen.getByRole("combobox", { name: "Category" });
+}
+
+// Base UI mounts the popup/options asynchronously (positioning is computed
+// after open), so every "open a select" helper waits for at least one option
+// to actually be in the DOM before returning — otherwise a same-tick
+// getByRole("option", ...) right after the click can race the popup mount.
 async function openAssignSelect(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(await screen.findByRole("combobox"));
+  await user.click(await screen.findByRole("combobox", { name: "Assigned to" }));
+  await screen.findAllByRole("option");
+}
+
+async function openStatusSelect(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole("combobox", { name: "Status" }));
+  await screen.findAllByRole("option");
+}
+
+async function openCategorySelect(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole("combobox", { name: "Category" }));
+  await screen.findAllByRole("option");
 }
 
 describe("TicketDetail — assignment", () => {
   it("shows Unassigned when the ticket has no assignee", async () => {
     renderPage();
 
-    expect(await screen.findByRole("combobox")).toHaveTextContent(
+    expect(await screen.findByRole("combobox", { name: "Assigned to" })).toHaveTextContent(
       "Unassigned",
     );
   });
@@ -83,7 +115,7 @@ describe("TicketDetail — assignment", () => {
   it("shows the current assignee's name when the ticket is already assigned", async () => {
     renderPage({ ...baseTicket, assignedTo: assignees[0] });
 
-    expect(await screen.findByRole("combobox")).toHaveTextContent(
+    expect(await screen.findByRole("combobox", { name: "Assigned to" })).toHaveTextContent(
       "Jordan Lee",
     );
   });
@@ -117,7 +149,7 @@ describe("TicketDetail — assignment", () => {
       );
     });
     await waitFor(() => {
-      expect(screen.getByRole("combobox")).toHaveTextContent("Priya Nair");
+      expect(assignCombobox()).toHaveTextContent("Priya Nair");
     });
   });
 
@@ -137,7 +169,7 @@ describe("TicketDetail — assignment", () => {
       );
     });
     await waitFor(() => {
-      expect(screen.getByRole("combobox")).toHaveTextContent("Unassigned");
+      expect(assignCombobox()).toHaveTextContent("Unassigned");
     });
   });
 
@@ -158,6 +190,126 @@ describe("TicketDetail — assignment", () => {
     await user.click(screen.getByRole("option", { name: "Jordan Lee" }));
 
     expect(await screen.findByText("Assignee not found")).toBeInTheDocument();
-    expect(screen.getByRole("combobox")).toHaveTextContent("Unassigned");
+    expect(assignCombobox()).toHaveTextContent("Unassigned");
+  });
+});
+
+describe("TicketDetail — status", () => {
+  it("shows the ticket's current status", async () => {
+    renderPage({ ...baseTicket, status: "resolved" });
+
+    expect(await screen.findByRole("combobox", { name: "Status" })).toHaveTextContent(
+      "resolved",
+    );
+  });
+
+  it("lists all three statuses as options", async () => {
+    const user = renderPage();
+
+    await openStatusSelect(user);
+
+    const options = screen.getAllByRole("option");
+    expect(options.map((o) => o.textContent)).toEqual([
+      "open",
+      "resolved",
+      "closed",
+    ]);
+  });
+
+  it("updates the status when a new option is selected", async () => {
+    mockedAxios.patch.mockResolvedValue({
+      data: { ticket: { ...baseTicket, status: "closed" } },
+    });
+    const user = renderPage();
+
+    await openStatusSelect(user);
+    await user.click(screen.getByRole("option", { name: "closed" }));
+
+    await waitFor(() => {
+      expect(mockedAxios.patch).toHaveBeenCalledWith(
+        `/tickets/${baseTicket.id}/status`,
+        { status: "closed" },
+      );
+    });
+    await waitFor(() => {
+      expect(statusCombobox()).toHaveTextContent("closed");
+    });
+  });
+
+  it("shows a server error and keeps the previous status when the request fails", async () => {
+    mockedAxios.isAxiosError.mockImplementation(
+      (err: unknown) =>
+        typeof err === "object" && err !== null && "response" in err,
+    );
+    mockedAxios.patch.mockRejectedValue({
+      response: { data: { error: "Invalid status" } },
+    });
+    const user = renderPage();
+
+    await openStatusSelect(user);
+    await user.click(screen.getByRole("option", { name: "resolved" }));
+
+    expect(await screen.findByText("Invalid status")).toBeInTheDocument();
+    expect(statusCombobox()).toHaveTextContent("open");
+  });
+});
+
+describe("TicketDetail — category", () => {
+  it("shows the ticket's current category", async () => {
+    renderPage({ ...baseTicket, category: "refund_request" });
+
+    expect(await screen.findByRole("combobox", { name: "Category" })).toHaveTextContent(
+      "Refund request",
+    );
+  });
+
+  it("lists all three categories as options", async () => {
+    const user = renderPage();
+
+    await openCategorySelect(user);
+
+    const options = screen.getAllByRole("option");
+    expect(options.map((o) => o.textContent)).toEqual([
+      "General question",
+      "Technical question",
+      "Refund request",
+    ]);
+  });
+
+  it("updates the category when a new option is selected", async () => {
+    mockedAxios.patch.mockResolvedValue({
+      data: { ticket: { ...baseTicket, category: "technical_question" } },
+    });
+    const user = renderPage();
+
+    await openCategorySelect(user);
+    await user.click(screen.getByRole("option", { name: "Technical question" }));
+
+    await waitFor(() => {
+      expect(mockedAxios.patch).toHaveBeenCalledWith(
+        `/tickets/${baseTicket.id}/category`,
+        { category: "technical_question" },
+      );
+    });
+    await waitFor(() => {
+      expect(categoryCombobox()).toHaveTextContent("Technical question");
+    });
+  });
+
+  it("shows a server error and keeps the previous category when the request fails", async () => {
+    mockedAxios.isAxiosError.mockImplementation(
+      (err: unknown) =>
+        typeof err === "object" && err !== null && "response" in err,
+    );
+    mockedAxios.patch.mockRejectedValue({
+      response: { data: { error: "Invalid category" } },
+    });
+    const user = renderPage();
+
+    await openCategorySelect(user);
+    await user.click(screen.getByRole("option", { name: "Refund request" }));
+
+    expect(await screen.findByText("Invalid category")).toBeInTheDocument();
+    expect(categoryCombobox()).toHaveTextContent("General question");
   });
 });

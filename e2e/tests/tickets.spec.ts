@@ -577,6 +577,173 @@ test.describe("Ticket assignment (/tickets/:id)", () => {
   });
 });
 
+// Updating a ticket's status/category (PATCH /api/tickets/:id/status and
+// /category, backed by the Status Select in the page header and the
+// Category Select in the sidebar). Both mirror the "Assigned to" Select
+// exactly — see the "Ticket assignment" describe block above — except the
+// dropdown options are the fixed status/category enum values rather than a
+// server-fetched list.
+test.describe("Ticket status & category (/tickets/:id)", () => {
+  test.use({ storageState: ADMIN_STORAGE_STATE });
+
+  function statusCombobox(page: Page) {
+    // Fixed aria-label ("Status") independent of the currently selected
+    // value — this page has 3 comboboxes (Status, Category, Assigned to),
+    // so a bare getByRole("combobox") would be a strict-mode violation.
+    return page.getByRole("combobox", { name: "Status" });
+  }
+
+  function categoryCombobox(page: Page) {
+    return page.getByRole("combobox", { name: "Category" });
+  }
+
+  async function selectStatus(page: Page, optionName: string) {
+    await statusCombobox(page).click();
+    await page.getByRole("option", { name: optionName, exact: true }).click();
+  }
+
+  async function selectCategory(page: Page, optionName: string) {
+    await categoryCombobox(page).click();
+    await page.getByRole("option", { name: optionName, exact: true }).click();
+  }
+
+  test("changing status via the select is reflected on the detail page and the tickets list", async ({
+    page,
+    request,
+  }) => {
+    const ticket = await seedTicket(request);
+
+    await page.goto("/");
+    await rowFor(page, ticket.subject)
+      .getByRole("link", { name: ticket.subject })
+      .click();
+    await expect(page).toHaveURL(`/tickets/${ticket.id}`);
+
+    // Starts open (the webhook always creates open tickets).
+    await expect(statusCombobox(page)).toContainText("open");
+
+    await selectStatus(page, "resolved");
+    await expect(statusCombobox(page)).toContainText("resolved");
+    // No error message from the mutation.
+    await expect(page.getByText("Invalid status")).toHaveCount(0);
+
+    // Navigate back to the list via the in-app link (no full page reload),
+    // exercising the ["tickets"] query invalidation the mutation triggers.
+    await page.getByRole("link", { name: "Back to tickets" }).click();
+    await expect(page).toHaveURL("/");
+    await expect(
+      rowFor(page, ticket.subject).getByText("resolved", { exact: true }),
+    ).toBeVisible();
+
+    // Back into the ticket: the select still shows the updated status.
+    await rowFor(page, ticket.subject)
+      .getByRole("link", { name: ticket.subject })
+      .click();
+    await expect(page).toHaveURL(`/tickets/${ticket.id}`);
+    await expect(statusCombobox(page)).toContainText("resolved");
+  });
+
+  test("changing category via the select is reflected on the detail page and the tickets list", async ({
+    page,
+    request,
+  }) => {
+    const ticket = await seedTicket(request);
+
+    await page.goto("/");
+    await rowFor(page, ticket.subject)
+      .getByRole("link", { name: ticket.subject })
+      .click();
+    await expect(page).toHaveURL(`/tickets/${ticket.id}`);
+
+    // Starts general_question (the webhook always creates that category).
+    await expect(categoryCombobox(page)).toContainText("General question");
+
+    await selectCategory(page, "Refund request");
+    await expect(categoryCombobox(page)).toContainText("Refund request");
+    // No error message from the mutation.
+    await expect(page.getByText("Invalid category")).toHaveCount(0);
+
+    await page.getByRole("link", { name: "Back to tickets" }).click();
+    await expect(page).toHaveURL("/");
+    await expect(
+      rowFor(page, ticket.subject).getByText("Refund request", {
+        exact: true,
+      }),
+    ).toBeVisible();
+
+    // Back into the ticket: the select still shows the updated category.
+    await rowFor(page, ticket.subject)
+      .getByRole("link", { name: ticket.subject })
+      .click();
+    await expect(page).toHaveURL(`/tickets/${ticket.id}`);
+    await expect(categoryCombobox(page)).toContainText("Refund request");
+  });
+});
+
+test.describe("PATCH /api/tickets/:id/status (API)", () => {
+  test("without auth returns 401", async ({ request }) => {
+    const res = await request.patch(
+      `/api/tickets/does-not-exist-${unique()}/status`,
+      { data: { status: "resolved" } },
+    );
+    expect(res.status()).toBe(401);
+  });
+
+  test.describe("authenticated", () => {
+    test.use({ storageState: ADMIN_STORAGE_STATE });
+
+    test("400s for an invalid status value", async ({ request }) => {
+      const ticket = await seedTicket(request);
+
+      const res = await request.patch(`/api/tickets/${ticket.id}/status`, {
+        data: { status: "not-a-real-status" },
+      });
+      expect(res.status()).toBe(400);
+    });
+
+    test("404s for a nonexistent ticket", async ({ request }) => {
+      const res = await request.patch(
+        `/api/tickets/does-not-exist-${unique()}/status`,
+        { data: { status: "resolved" } },
+      );
+      expect(res.status()).toBe(404);
+      expect((await res.json()).error).toBe("Ticket not found");
+    });
+  });
+});
+
+test.describe("PATCH /api/tickets/:id/category (API)", () => {
+  test("without auth returns 401", async ({ request }) => {
+    const res = await request.patch(
+      `/api/tickets/does-not-exist-${unique()}/category`,
+      { data: { category: "refund_request" } },
+    );
+    expect(res.status()).toBe(401);
+  });
+
+  test.describe("authenticated", () => {
+    test.use({ storageState: ADMIN_STORAGE_STATE });
+
+    test("400s for an invalid category value", async ({ request }) => {
+      const ticket = await seedTicket(request);
+
+      const res = await request.patch(`/api/tickets/${ticket.id}/category`, {
+        data: { category: "not-a-real-category" },
+      });
+      expect(res.status()).toBe(400);
+    });
+
+    test("404s for a nonexistent ticket", async ({ request }) => {
+      const res = await request.patch(
+        `/api/tickets/does-not-exist-${unique()}/category`,
+        { data: { category: "refund_request" } },
+      );
+      expect(res.status()).toBe(404);
+      expect((await res.json()).error).toBe("Ticket not found");
+    });
+  });
+});
+
 test.describe("PATCH /api/tickets/:id/assign (API)", () => {
   test("without auth returns 401", async ({ request }) => {
     const res = await request.patch(

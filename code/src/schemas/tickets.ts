@@ -50,3 +50,19 @@ export const assignTicketSchema = z.object({
 });
 
 export type AssignTicketInput = z.infer<typeof assignTicketSchema>;
+
+/** Body for `PATCH /api/tickets/:id/status`. */
+export const updateTicketStatusSchema = z.object({
+  status: z.enum(ticketStatusValues),
+});
+
+export type UpdateTicketStatusInput = z.infer<typeof updateTicketStatusSchema>;
+
+/** Body for `PATCH /api/tickets/:id/category`. */
+export const updateTicketCategorySchema = z.object({
+  category: z.enum(ticketCategoryValues),
+});
+
+export type UpdateTicketCategoryInput = z.infer<
+  typeof updateTicketCategorySchema
+>;
