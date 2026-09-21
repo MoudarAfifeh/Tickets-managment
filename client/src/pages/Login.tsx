@@ -4,6 +4,7 @@ import { Loader2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { z } from "zod";
+import ErrorMessage from "@/components/ErrorMessage";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -72,9 +73,7 @@ function Login() {
                 {...register("email")}
               />
               {errors.email && (
-                <p className="text-sm text-destructive">
-                  {errors.email.message}
-                </p>
+                <ErrorMessage>{errors.email.message}</ErrorMessage>
               )}
             </div>
             <div className="flex flex-col gap-1.5">
@@ -87,14 +86,10 @@ function Login() {
                 {...register("password")}
               />
               {errors.password && (
-                <p className="text-sm text-destructive">
-                  {errors.password.message}
-                </p>
+                <ErrorMessage>{errors.password.message}</ErrorMessage>
               )}
             </div>
-            {serverError && (
-              <p className="text-sm text-destructive">{serverError}</p>
-            )}
+            {serverError && <ErrorMessage>{serverError}</ErrorMessage>}
             <Button type="submit" disabled={isSubmitting} className="mt-2">
               {isSubmitting && <Loader2 className="animate-spin" />}
               {isSubmitting ? "Signing in..." : "Sign in"}

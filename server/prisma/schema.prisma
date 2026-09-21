@@ -27,6 +27,11 @@ enum TicketCategory {
   refund_request
 }
 
+enum SenderType {
+  agent
+  customer
+}
+
 model User {
   id              String    @id @default(uuid())
   email           String    @unique
@@ -35,6 +40,7 @@ model User {
   createdAt       DateTime  @default(now())
   sessions        Session[]
   assignedTickets Ticket[]  @relation("AssignedTickets")
+  replies         Reply[]
   name            String
   emailVerified   Boolean   @default(false)
   image           String?
@@ -75,10 +81,32 @@ model Ticket {
   senderEmail  String
   assignedToId String?
   assignedTo   User?          @relation("AssignedTickets", fields: [assignedToId], references: [id])
+  replies      Reply[]
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 
   @@map("ticket")
+}
+
+// A reply on a ticket, from either side of the conversation. `senderType`
+// tells the two apart: `agent` replies have an `author` (the signed-in user
+// who wrote it, via POST /api/tickets/:id/replies); `customer` replies have
+// no `author` — the sender is the ticket's own senderName/senderEmail.
+// Outbound-only for now (no provider is wired to actually email an agent
+// reply to the customer — see webhooks.ts) — this just gives the ticket
+// detail page a stored, displayable reply thread.
+model Reply {
+  id         String     @id @default(uuid())
+  ticketId   String
+  ticket     Ticket     @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  senderType SenderType
+  authorId   String?
+  author     User?      @relation(fields: [authorId], references: [id])
+  body       String
+  createdAt  DateTime   @default(now())
+
+  @@index([ticketId])
+  @@map("reply")
 }
 
 model Account {

@@ -33,7 +33,7 @@ Assumptions carried in from `project-scope.md`'s still-open questions (flagged i
 ## Phase 2: Ticket Data Model & Manual Management
 
 - [x] Prisma schema: `Ticket` — self-contained (id, subject, body, bodyHtml?, status enum @default(open), category enum @default(general_question), senderName?, senderEmail, assignedToId? → User, createdAt, updatedAt)
-- [~] Prisma schema: `Message` — **dropped**; `Ticket` is self-contained, no separate thread model (revisit if/when outbound replies need a stored conversation)
+- [x] Prisma schema: `Reply` — revived and renamed from the earlier `Message` (id, ticketId → Ticket cascade, senderType: agent/customer, authorId? → User, body, createdAt); one entry in a ticket's thread. Only the `agent` side has a producer so far — stored and shown in the ticket detail thread, still outbound-only (no provider is wired to actually email it, see Phase 3). `customer` replies aren't created anywhere yet — the inbound webhook's threaded follow-ups are the obvious source (see Phase 3)
 - [ ] Backend: create ticket endpoint (manual, for testing before email ingestion exists)
 - [ ] Backend: list tickets endpoint (filter by status/category, sort)
 - [ ] Backend: get ticket detail endpoint (with message thread)

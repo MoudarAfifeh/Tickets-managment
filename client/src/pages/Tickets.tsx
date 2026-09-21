@@ -9,6 +9,7 @@ import TicketFilters, {
 } from "../components/TicketFilters";
 import TicketsPagination from "../components/TicketsPagination";
 import { api } from "@/lib/api";
+import ErrorMessage from "@/components/ErrorMessage";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
 export type TicketListItem = {
@@ -114,7 +115,7 @@ function Tickets() {
 
         <TicketFilters value={filters} onChange={handleFiltersChange} />
 
-        {error && <p className="text-sm text-destructive">{error.message}</p>}
+        {error && <ErrorMessage>{error.message}</ErrorMessage>}
 
         {!error && (
           <>

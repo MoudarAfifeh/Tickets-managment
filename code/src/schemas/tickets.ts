@@ -66,3 +66,14 @@ export const updateTicketCategorySchema = z.object({
 export type UpdateTicketCategoryInput = z.infer<
   typeof updateTicketCategorySchema
 >;
+
+// `senderType` isn't part of this schema — the client never sends it. The
+// server always creates POST /api/tickets/:id/replies as senderType: "agent"
+// (the authenticated caller); "customer" replies have no client-facing
+// producer yet (see server/src/routes/webhooks.ts).
+/** Body for `POST /api/tickets/:id/replies`. */
+export const createReplySchema = z.object({
+  body: z.string().trim().min(1, "Message is required"),
+});
+
+export type CreateReplyInput = z.infer<typeof createReplySchema>;

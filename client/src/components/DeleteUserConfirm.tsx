@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { getServerErrorMessage } from "@/lib/serverError";
+import ErrorMessage from "@/components/ErrorMessage";
 import { Button } from "@/components/ui/button";
 import { DialogClose, DialogFooter } from "@/components/ui/dialog";
 import type { UserListItem } from "@/pages/Users";
@@ -31,9 +32,7 @@ function DeleteUserConfirm({ user, onSuccess }: DeleteUserConfirmProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      {serverError && (
-        <p className="text-sm text-destructive">{serverError}</p>
-      )}
+      {serverError && <ErrorMessage>{serverError}</ErrorMessage>}
       <DialogFooter>
         <DialogClose
           render={<Button variant="outline" disabled={mutation.isPending} />}

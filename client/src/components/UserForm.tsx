@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { api } from "@/lib/api";
 import { getServerErrorMessage } from "@/lib/serverError";
+import ErrorMessage from "@/components/ErrorMessage";
 import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -89,9 +90,7 @@ function UserForm({ mode, onSuccess }: UserFormProps) {
           aria-invalid={errors.name ? "true" : "false"}
           {...register("name")}
         />
-        {errors.name && (
-          <p className="text-sm text-destructive">{errors.name.message}</p>
-        )}
+        {errors.name && <ErrorMessage>{errors.name.message}</ErrorMessage>}
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="user-email">Email</Label>
@@ -103,9 +102,7 @@ function UserForm({ mode, onSuccess }: UserFormProps) {
           aria-invalid={errors.email ? "true" : "false"}
           {...register("email")}
         />
-        {errors.email && (
-          <p className="text-sm text-destructive">{errors.email.message}</p>
-        )}
+        {errors.email && <ErrorMessage>{errors.email.message}</ErrorMessage>}
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="user-password">Password</Label>
@@ -117,12 +114,10 @@ function UserForm({ mode, onSuccess }: UserFormProps) {
           {...register("password")}
         />
         {errors.password && (
-          <p className="text-sm text-destructive">{errors.password.message}</p>
+          <ErrorMessage>{errors.password.message}</ErrorMessage>
         )}
       </div>
-      {serverError && (
-        <p className="text-sm text-destructive">{serverError}</p>
-      )}
+      {serverError && <ErrorMessage>{serverError}</ErrorMessage>}
       <DialogFooter>
         <Button type="submit" disabled={pending}>
           {pending && <Loader2 className="animate-spin" />}

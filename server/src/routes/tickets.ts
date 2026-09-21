@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   assignTicketSchema,
+  createReplySchema,
   ticketListQuerySchema,
   updateTicketCategorySchema,
   updateTicketStatusSchema,
@@ -34,6 +35,23 @@ function ticketOrderBy(
   if (sortBy === "assignedTo") return { assignedTo: { name: sortOrder } };
   return { [sortBy]: sortOrder };
 }
+
+// Shared by GET /:id and the reply/assign/status/category mutations below,
+// all of which respond with the full ticket detail (including its reply
+// thread) so the client can replace its cached copy in one round-trip.
+const ticketDetailInclude = {
+  assignedTo: { select: { id: true, name: true } },
+  replies: {
+    select: {
+      id: true,
+      body: true,
+      senderType: true,
+      createdAt: true,
+      author: { select: { id: true, name: true } },
+    },
+    orderBy: { createdAt: "asc" },
+  },
+} as const;
 
 ticketsRouter.get("/", async (req, res) => {
   const parsed = ticketListQuerySchema.safeParse(req.query);
@@ -89,7 +107,7 @@ ticketsRouter.get("/assignees", async (_req, res) => {
 ticketsRouter.get("/:id", async (req, res) => {
   const ticket = await prisma.ticket.findUnique({
     where: { id: req.params.id },
-    include: { assignedTo: { select: { id: true, name: true } } },
+    include: ticketDetailInclude,
   });
 
   if (!ticket) {
@@ -129,7 +147,7 @@ ticketsRouter.patch("/:id/assign", async (req, res) => {
   const updated = await prisma.ticket.update({
     where: { id },
     data: { assignedToId: data.assignedToId },
-    include: { assignedTo: { select: { id: true, name: true } } },
+    include: ticketDetailInclude,
   });
 
   res.json({ ticket: updated });
@@ -153,7 +171,7 @@ ticketsRouter.patch("/:id/status", async (req, res) => {
   const updated = await prisma.ticket.update({
     where: { id },
     data: { status: data.status },
-    include: { assignedTo: { select: { id: true, name: true } } },
+    include: ticketDetailInclude,
   });
 
   res.json({ ticket: updated });
@@ -177,8 +195,43 @@ ticketsRouter.patch("/:id/category", async (req, res) => {
   const updated = await prisma.ticket.update({
     where: { id },
     data: { category: data.category },
-    include: { assignedTo: { select: { id: true, name: true } } },
+    include: ticketDetailInclude,
   });
 
   res.json({ ticket: updated });
+});
+
+// Only signed-in agents post through here, so this always creates a
+// senderType: "agent" reply — a "customer" reply has no client-facing
+// producer yet (see server/src/routes/webhooks.ts).
+ticketsRouter.post("/:id/replies", async (req, res) => {
+  const data = parseBody(createReplySchema, req, res);
+  if (data === null) return;
+  const id = requireParam("id", req, res);
+  if (id === null) return;
+
+  const ticket = await prisma.ticket.findUnique({
+    where: { id },
+    select: { id: true },
+  });
+  if (!ticket) {
+    res.status(404).json({ error: "Ticket not found" });
+    return;
+  }
+
+  await prisma.reply.create({
+    data: {
+      ticketId: id,
+      senderType: "agent",
+      authorId: req.user!.id,
+      body: data.body,
+    },
+  });
+
+  const updated = await prisma.ticket.findUniqueOrThrow({
+    where: { id },
+    include: ticketDetailInclude,
+  });
+
+  res.status(201).json({ ticket: updated });
 });

@@ -1,9 +1,10 @@
+import { useQuery } from "@tanstack/react-query";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Route, Routes } from "react-router-dom";
-import type { TicketCategory, TicketStatus } from "code";
-import TicketDetailPage from "./TicketDetail";
+import type { TicketDetail } from "@/types/ticket";
+import { makeTicket } from "@/test/fixtures";
 import { renderWithProviders } from "@/test/render";
+import UpdateTicket from "./UpdateTicket";
 
 const { mockedAxios } = vi.hoisted(() => {
   const mockedAxios = {
@@ -18,23 +19,7 @@ const { mockedAxios } = vi.hoisted(() => {
 
 vi.mock("axios", () => ({ default: mockedAxios }));
 
-vi.mock("@/lib/auth-client", () => ({
-  useSession: () => ({ data: { user: { name: "Admin User", role: "admin" } } }),
-  authClient: { signOut: vi.fn() },
-}));
-
-const baseTicket = {
-  id: "ticket-1",
-  subject: "How do I reset my password?",
-  body: "I can't find the reset link anywhere, can you help?",
-  status: "open" as TicketStatus,
-  category: "general_question" as TicketCategory,
-  senderName: "Alice Turner",
-  senderEmail: "alice@customer.example",
-  assignedTo: null as { id: string; name: string } | null,
-  createdAt: "2026-09-15T07:15:13.668Z",
-  updatedAt: "2026-09-15T07:15:13.668Z",
-};
+const baseTicket = makeTicket();
 
 const assignees = [
   { id: "agent-1", name: "Jordan Lee" },
@@ -47,31 +32,42 @@ beforeEach(() => {
   mockedAxios.isAxiosError.mockReset();
 });
 
-function renderPage(ticket = baseTicket) {
+// A successful update writes the returned ticket into the `["ticket", id]`
+// query, and the page that owns that query passes the new value back down as
+// the `ticket` prop. This stands in for that page so tests can see the
+// updated value come back through the props.
+function TicketFromCache({ initial }: { initial: TicketDetail }) {
+  const { data } = useQuery({
+    queryKey: ["ticket", initial.id],
+    queryFn: () => Promise.resolve(initial),
+    initialData: initial,
+    staleTime: Infinity,
+  });
+  return <UpdateTicket ticket={data} />;
+}
+
+function renderUpdateTicket(ticket = baseTicket) {
   mockedAxios.get.mockImplementation((url: string) => {
     if (url === "/tickets/assignees") {
       return Promise.resolve({ data: { users: assignees } });
-    }
-    if (url === `/tickets/${ticket.id}`) {
-      return Promise.resolve({ data: { ticket } });
     }
     return Promise.reject(new Error(`Unexpected GET ${url}`));
   });
 
   const user = userEvent.setup();
-  renderWithProviders(
-    <Routes>
-      <Route path="/tickets/:id" element={<TicketDetailPage />} />
-    </Routes>,
-    { initialEntries: [`/tickets/${ticket.id}`] },
-  );
+  renderWithProviders(<TicketFromCache initial={ticket} />);
   return user;
 }
 
-// The page has three comboboxes (Status, Category, Assigned to), each with
-// its own aria-label (Base UI's SelectTrigger role="combobox" doesn't get
-// "name from contents" per the ARIA accname spec, so every trigger needs an
-// explicit aria-label — see the aria-label additions in TicketDetail.tsx).
+function mockAxiosErrors() {
+  mockedAxios.isAxiosError.mockImplementation(
+    (err: unknown) =>
+      typeof err === "object" && err !== null && "response" in err,
+  );
+}
+
+// Base UI's SelectTrigger role="combobox" doesn't get "name from contents"
+// per the ARIA accname spec, so every trigger has an explicit aria-label.
 function assignCombobox() {
   return screen.getByRole("combobox", { name: "Assigned to" });
 }
@@ -88,42 +84,47 @@ function categoryCombobox() {
 // after open), so every "open a select" helper waits for at least one option
 // to actually be in the DOM before returning — otherwise a same-tick
 // getByRole("option", ...) right after the click can race the popup mount.
-async function openAssignSelect(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(await screen.findByRole("combobox", { name: "Assigned to" }));
+async function openSelect(
+  user: ReturnType<typeof userEvent.setup>,
+  name: string,
+) {
+  await user.click(screen.getByRole("combobox", { name }));
   await screen.findAllByRole("option");
 }
 
-async function openStatusSelect(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(await screen.findByRole("combobox", { name: "Status" }));
-  await screen.findAllByRole("option");
-}
+describe("UpdateTicket — details", () => {
+  it("shows the sender as a mailto link and the created date", () => {
+    renderUpdateTicket();
 
-async function openCategorySelect(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(await screen.findByRole("combobox", { name: "Category" }));
-  await screen.findAllByRole("option");
-}
+    expect(
+      screen.getByRole("link", { name: baseTicket.senderEmail }),
+    ).toHaveAttribute("href", `mailto:${baseTicket.senderEmail}`);
+    expect(
+      screen.getByText(new Date(baseTicket.createdAt).toLocaleString()),
+    ).toBeInTheDocument();
+  });
+});
 
-describe("TicketDetail — assignment", () => {
-  it("shows Unassigned when the ticket has no assignee", async () => {
-    renderPage();
+describe("UpdateTicket — assignment", () => {
+  it("shows Unassigned when the ticket has no assignee", () => {
+    renderUpdateTicket();
 
-    expect(await screen.findByRole("combobox", { name: "Assigned to" })).toHaveTextContent(
-      "Unassigned",
-    );
+    expect(assignCombobox()).toHaveTextContent("Unassigned");
   });
 
   it("shows the current assignee's name when the ticket is already assigned", async () => {
-    renderPage({ ...baseTicket, assignedTo: assignees[0] });
+    renderUpdateTicket({ ...baseTicket, assignedTo: assignees[0] });
 
-    expect(await screen.findByRole("combobox", { name: "Assigned to" })).toHaveTextContent(
-      "Jordan Lee",
-    );
+    // The name is resolved from the assignees query, so it lands once that loads.
+    await waitFor(() => {
+      expect(assignCombobox()).toHaveTextContent("Jordan Lee");
+    });
   });
 
   it("lists Unassigned plus every fetched assignee as options", async () => {
-    const user = renderPage();
+    const user = renderUpdateTicket();
 
-    await openAssignSelect(user);
+    await openSelect(user, "Assigned to");
 
     const options = screen.getAllByRole("option");
     expect(options.map((o) => o.textContent)).toEqual([
@@ -137,9 +138,9 @@ describe("TicketDetail — assignment", () => {
     mockedAxios.patch.mockResolvedValue({
       data: { ticket: { ...baseTicket, assignedTo: assignees[1] } },
     });
-    const user = renderPage();
+    const user = renderUpdateTicket();
 
-    await openAssignSelect(user);
+    await openSelect(user, "Assigned to");
     await user.click(screen.getByRole("option", { name: "Priya Nair" }));
 
     await waitFor(() => {
@@ -157,9 +158,9 @@ describe("TicketDetail — assignment", () => {
     mockedAxios.patch.mockResolvedValue({
       data: { ticket: { ...baseTicket, assignedTo: null } },
     });
-    const user = renderPage({ ...baseTicket, assignedTo: assignees[0] });
+    const user = renderUpdateTicket({ ...baseTicket, assignedTo: assignees[0] });
 
-    await openAssignSelect(user);
+    await openSelect(user, "Assigned to");
     await user.click(screen.getByRole("option", { name: "Unassigned" }));
 
     await waitFor(() => {
@@ -174,19 +175,13 @@ describe("TicketDetail — assignment", () => {
   });
 
   it("shows a server error and keeps the previous assignee when the request fails", async () => {
-    // Only the assign mutation's rejection should read as an axios error —
-    // the page also runs `axios.isAxiosError` against the ticket query's
-    // (here absent) error, which must stay falsy for that check.
-    mockedAxios.isAxiosError.mockImplementation(
-      (err: unknown) =>
-        typeof err === "object" && err !== null && "response" in err,
-    );
+    mockAxiosErrors();
     mockedAxios.patch.mockRejectedValue({
       response: { data: { error: "Assignee not found" } },
     });
-    const user = renderPage();
+    const user = renderUpdateTicket();
 
-    await openAssignSelect(user);
+    await openSelect(user, "Assigned to");
     await user.click(screen.getByRole("option", { name: "Jordan Lee" }));
 
     expect(await screen.findByText("Assignee not found")).toBeInTheDocument();
@@ -194,19 +189,17 @@ describe("TicketDetail — assignment", () => {
   });
 });
 
-describe("TicketDetail — status", () => {
-  it("shows the ticket's current status", async () => {
-    renderPage({ ...baseTicket, status: "resolved" });
+describe("UpdateTicket — status", () => {
+  it("shows the ticket's current status", () => {
+    renderUpdateTicket({ ...baseTicket, status: "resolved" });
 
-    expect(await screen.findByRole("combobox", { name: "Status" })).toHaveTextContent(
-      "resolved",
-    );
+    expect(statusCombobox()).toHaveTextContent("resolved");
   });
 
   it("lists all three statuses as options", async () => {
-    const user = renderPage();
+    const user = renderUpdateTicket();
 
-    await openStatusSelect(user);
+    await openSelect(user, "Status");
 
     const options = screen.getAllByRole("option");
     expect(options.map((o) => o.textContent)).toEqual([
@@ -220,9 +213,9 @@ describe("TicketDetail — status", () => {
     mockedAxios.patch.mockResolvedValue({
       data: { ticket: { ...baseTicket, status: "closed" } },
     });
-    const user = renderPage();
+    const user = renderUpdateTicket();
 
-    await openStatusSelect(user);
+    await openSelect(user, "Status");
     await user.click(screen.getByRole("option", { name: "closed" }));
 
     await waitFor(() => {
@@ -237,16 +230,13 @@ describe("TicketDetail — status", () => {
   });
 
   it("shows a server error and keeps the previous status when the request fails", async () => {
-    mockedAxios.isAxiosError.mockImplementation(
-      (err: unknown) =>
-        typeof err === "object" && err !== null && "response" in err,
-    );
+    mockAxiosErrors();
     mockedAxios.patch.mockRejectedValue({
       response: { data: { error: "Invalid status" } },
     });
-    const user = renderPage();
+    const user = renderUpdateTicket();
 
-    await openStatusSelect(user);
+    await openSelect(user, "Status");
     await user.click(screen.getByRole("option", { name: "resolved" }));
 
     expect(await screen.findByText("Invalid status")).toBeInTheDocument();
@@ -254,19 +244,17 @@ describe("TicketDetail — status", () => {
   });
 });
 
-describe("TicketDetail — category", () => {
-  it("shows the ticket's current category", async () => {
-    renderPage({ ...baseTicket, category: "refund_request" });
+describe("UpdateTicket — category", () => {
+  it("shows the ticket's current category", () => {
+    renderUpdateTicket({ ...baseTicket, category: "refund_request" });
 
-    expect(await screen.findByRole("combobox", { name: "Category" })).toHaveTextContent(
-      "Refund request",
-    );
+    expect(categoryCombobox()).toHaveTextContent("Refund request");
   });
 
   it("lists all three categories as options", async () => {
-    const user = renderPage();
+    const user = renderUpdateTicket();
 
-    await openCategorySelect(user);
+    await openSelect(user, "Category");
 
     const options = screen.getAllByRole("option");
     expect(options.map((o) => o.textContent)).toEqual([
@@ -280,10 +268,12 @@ describe("TicketDetail — category", () => {
     mockedAxios.patch.mockResolvedValue({
       data: { ticket: { ...baseTicket, category: "technical_question" } },
     });
-    const user = renderPage();
+    const user = renderUpdateTicket();
 
-    await openCategorySelect(user);
-    await user.click(screen.getByRole("option", { name: "Technical question" }));
+    await openSelect(user, "Category");
+    await user.click(
+      screen.getByRole("option", { name: "Technical question" }),
+    );
 
     await waitFor(() => {
       expect(mockedAxios.patch).toHaveBeenCalledWith(
@@ -297,16 +287,13 @@ describe("TicketDetail — category", () => {
   });
 
   it("shows a server error and keeps the previous category when the request fails", async () => {
-    mockedAxios.isAxiosError.mockImplementation(
-      (err: unknown) =>
-        typeof err === "object" && err !== null && "response" in err,
-    );
+    mockAxiosErrors();
     mockedAxios.patch.mockRejectedValue({
       response: { data: { error: "Invalid category" } },
     });
-    const user = renderPage();
+    const user = renderUpdateTicket();
 
-    await openCategorySelect(user);
+    await openSelect(user, "Category");
     await user.click(screen.getByRole("option", { name: "Refund request" }));
 
     expect(await screen.findByText("Invalid category")).toBeInTheDocument();

@@ -5,6 +5,7 @@ import NavBar from "../components/NavBar";
 import UserDialog from "../components/UserDialog";
 import UsersTable from "../components/UsersTable";
 import { api } from "@/lib/api";
+import ErrorMessage from "@/components/ErrorMessage";
 import { Button } from "@/components/ui/button";
 
 export type UserListItem = {
@@ -50,9 +51,7 @@ function Users() {
           </Button>
         </div>
 
-        {error && (
-          <p className="text-sm text-destructive">{error.message}</p>
-        )}
+        {error && <ErrorMessage>{error.message}</ErrorMessage>}
 
         {!error && (
           <UsersTable

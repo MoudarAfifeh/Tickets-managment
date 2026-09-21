@@ -680,6 +680,85 @@ test.describe("Ticket status & category (/tickets/:id)", () => {
   });
 });
 
+// Replying to a ticket (POST /api/tickets/:id/messages, backed by the Reply
+// form in the left-column card's CardFooter). Every ticket detail response
+// (GET, and every mutation) includes the current `messages` array, so a
+// successful reply shows up in the thread via the ["ticket", id] query
+// invalidation the mutation triggers, with no full page reload.
+test.describe("Ticket replies (/tickets/:id)", () => {
+  test.use({ storageState: ADMIN_STORAGE_STATE });
+
+  test("submitting a reply appends it to the thread with the signed-in user's name and clears the textarea", async ({
+    page,
+    request,
+  }) => {
+    const ticket = await seedTicket(request);
+    const replyBody = `E2E reply body ${unique()}`;
+
+    await page.goto(`/tickets/${ticket.id}`);
+    await expect(
+      page.getByText(ticket.subject, { exact: true }),
+    ).toBeVisible();
+
+    const replyField = page.getByLabel("Reply");
+    await replyField.fill(replyBody);
+    await page.getByRole("button", { name: "Send reply" }).click();
+
+    // The reply body renders in its own paragraph inside the message
+    // bubble, which also holds the author's name — scope the author
+    // assertion to that bubble (its immediate parent) rather than a bare
+    // page-wide "Admin" text match, since NavBar also renders the signed-in
+    // user's name.
+    const replyParagraph = page.getByText(replyBody, { exact: true });
+    await expect(replyParagraph).toBeVisible();
+    const replyBubble = replyParagraph.locator("..");
+    // The seeded admin account (server/prisma/seed.ts) is named "Admin" —
+    // that's who ADMIN_STORAGE_STATE is signed in as, so it's the reply's
+    // author.
+    await expect(
+      replyBubble.getByText("Admin", { exact: true }),
+    ).toBeVisible();
+
+    // Textarea clears on success, and no validation/server error is left
+    // behind.
+    await expect(replyField).toHaveValue("");
+    await expect(page.getByText("Message is required")).toHaveCount(0);
+  });
+});
+
+test.describe("POST /api/tickets/:id/messages (API)", () => {
+  test("without auth returns 401", async ({ request }) => {
+    const res = await request.post(
+      `/api/tickets/does-not-exist-${unique()}/messages`,
+      { data: { body: "test" } },
+    );
+    expect(res.status()).toBe(401);
+  });
+
+  test.describe("authenticated", () => {
+    test.use({ storageState: ADMIN_STORAGE_STATE });
+
+    test("400s for an empty/whitespace-only body", async ({ request }) => {
+      const ticket = await seedTicket(request);
+
+      const res = await request.post(`/api/tickets/${ticket.id}/messages`, {
+        data: { body: "   " },
+      });
+      expect(res.status()).toBe(400);
+      expect((await res.json()).error).toBe("Message is required");
+    });
+
+    test("404s for a nonexistent ticket", async ({ request }) => {
+      const res = await request.post(
+        `/api/tickets/does-not-exist-${unique()}/messages`,
+        { data: { body: "test" } },
+      );
+      expect(res.status()).toBe(404);
+      expect((await res.json()).error).toBe("Ticket not found");
+    });
+  });
+});
+
 test.describe("PATCH /api/tickets/:id/status (API)", () => {
   test("without auth returns 401", async ({ request }) => {
     const res = await request.patch(
