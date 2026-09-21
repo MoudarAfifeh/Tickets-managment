@@ -8,11 +8,20 @@ import { ticketStatusValues } from "../constants/ticket-status";
  * shape (no mail provider is wired yet).
  */
 export const inboundEmailSchema = z.object({
-  from: z.email(),
-  fromName: z.string().optional(),
-  subject: z.string().min(1, "Subject is required"),
-  body: z.string().min(1, "Body is required"),
-  bodyHtml: z.string().optional(),
+  from: z.email().max(254, "Email must be at most 254 characters"),
+  fromName: z.string().max(255, "Name must be at most 255 characters").optional(),
+  subject: z
+    .string()
+    .min(1, "Subject is required")
+    .max(255, "Subject must be at most 255 characters"),
+  body: z
+    .string()
+    .min(1, "Body is required")
+    .max(20_000, "Body must be at most 20,000 characters"),
+  bodyHtml: z
+    .string()
+    .max(50_000, "HTML body must be at most 50,000 characters")
+    .optional(),
 });
 
 export type InboundEmailInput = z.infer<typeof inboundEmailSchema>;
