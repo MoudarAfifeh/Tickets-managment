@@ -1,12 +1,16 @@
 import { Router } from "express";
+import { openai } from "@ai-sdk/openai";
+import { generateText } from "ai";
 import {
   assignTicketSchema,
   createReplySchema,
+  polishReplySchema,
   ticketListQuerySchema,
   updateTicketCategorySchema,
   updateTicketStatusSchema,
 } from "code";
 import { requireAuth } from "../middleware/requireAuth";
+import { requireOpenAiKey } from "../middleware/requireOpenAiKey";
 import { parseBody } from "../lib/validateBody";
 import { requireParam } from "../lib/requireParam";
 import { prisma } from "../db";
@@ -234,4 +238,52 @@ ticketsRouter.post("/:id/replies", async (req, res) => {
   });
 
   res.status(201).json({ ticket: updated });
+});
+
+// Appended after the model's output rather than left to the model to write,
+// so the agent's name and link always come through exactly as-is.
+const SIGNATURE_URL = "https://moudar-afifeh.netlify.app/";
+
+// Tickets created without a fromName (e.g. via the inbound-email webhook)
+// have a null senderName — fall back to the email's local part rather than a
+// generic "Customer" so the greeting still reads as personal.
+function greetingNameFromEmail(email: string): string {
+  const localPart = email.split("@")[0] || email;
+  return localPart.charAt(0).toUpperCase() + localPart.slice(1);
+}
+
+// Ticket-id-scoped so the greeting can address the ticket's own customer by
+// name. Only this route needs requireOpenAiKey, so it's applied here rather
+// than via ticketsRouter.use.
+ticketsRouter.post("/:id/polish-reply", requireOpenAiKey, async (req, res) => {
+  const data = parseBody(polishReplySchema, req, res);
+  if (data === null) return;
+  const id = requireParam("id", req, res);
+  if (id === null) return;
+
+  const ticket = await prisma.ticket.findUnique({
+    where: { id },
+    select: { senderName: true, senderEmail: true },
+  });
+  if (!ticket) {
+    res.status(404).json({ error: "Ticket not found" });
+    return;
+  }
+
+  const { text } = await generateText({
+    model: openai("gpt-5-nano"),
+    instructions:
+      "You are an assistant that polishes support-agent replies to customers. " +
+      "Improve grammar, clarity, and tone while keeping the meaning, facts, and " +
+      "intent unchanged. Keep it concise and professional. Respond with only the " +
+      "polished reply text — no preamble, explanation, or surrounding quotes. " +
+      "Do not add a greeting or a signature/sign-off of your own — one is appended separately.",
+    prompt: data.body,
+  });
+
+  const greetingName =
+    ticket.senderName ?? greetingNameFromEmail(ticket.senderEmail);
+  const signed = `Dear ${greetingName},\n\n${text}\n\n${req.user!.name}\nBest regards\n\n${SIGNATURE_URL}`;
+
+  res.json({ body: signed });
 });

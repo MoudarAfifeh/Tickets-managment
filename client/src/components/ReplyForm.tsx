@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createReplySchema, type CreateReplyInput } from "code";
-import { Loader2 } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { api } from "@/lib/api";
 import { getServerErrorMessage } from "@/lib/serverError";
@@ -18,6 +18,14 @@ async function postReply(
   await api.post(`/tickets/${ticketId}/replies`, data);
 }
 
+async function polishReply(ticketId: string, body: string): Promise<string> {
+  const { data } = await api.post<{ body: string }>(
+    `/tickets/${ticketId}/polish-reply`,
+    { body },
+  );
+  return data.body;
+}
+
 type ReplyFormProps = {
   ticket: TicketDetail;
 };
@@ -29,6 +37,8 @@ function ReplyForm({ ticket }: ReplyFormProps) {
     register,
     handleSubmit,
     reset,
+    setValue,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<CreateReplyInput>({
     resolver: zodResolver(createReplySchema),
@@ -43,6 +53,14 @@ function ReplyForm({ ticket }: ReplyFormProps) {
     },
   });
 
+  const polishMutation = useMutation({
+    mutationFn: (body: string) => polishReply(ticket.id, body),
+    onSuccess: (polished) => {
+      setValue("body", polished, { shouldValidate: true, shouldDirty: true });
+    },
+  });
+
+  const bodyValue = watch("body");
   const pending = isSubmitting || mutation.isPending;
 
   return (
@@ -66,8 +84,29 @@ function ReplyForm({ ticket }: ReplyFormProps) {
           {getServerErrorMessage(mutation.error)}
         </ErrorMessage>
       )}
-      <div className="flex justify-end">
-        <Button type="submit" disabled={pending}>
+      {polishMutation.isError && (
+        <ErrorMessage className="text-xs">
+          {getServerErrorMessage(polishMutation.error)}
+        </ErrorMessage>
+      )}
+      <div className="flex justify-end gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          disabled={pending || polishMutation.isPending || !bodyValue.trim()}
+          onClick={() => polishMutation.mutate(bodyValue)}
+        >
+          {polishMutation.isPending ? (
+            <Loader2 className="animate-spin" />
+          ) : (
+            <Sparkles />
+          )}
+          Polish
+        </Button>
+        <Button
+          type="submit"
+          disabled={pending || polishMutation.isPending || !bodyValue.trim()}
+        >
           {pending && <Loader2 className="animate-spin" />}
           Send reply
         </Button>

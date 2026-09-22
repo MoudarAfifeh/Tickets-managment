@@ -30,12 +30,14 @@ function renderForm() {
 }
 
 describe("ReplyForm", () => {
-  it("shows a validation error and does not submit an empty reply", async () => {
+  it("disables the send button while the reply is empty or whitespace-only", async () => {
     const user = renderForm();
 
-    await user.click(screen.getByRole("button", { name: "Send reply" }));
+    expect(screen.getByRole("button", { name: "Send reply" })).toBeDisabled();
 
-    expect(await screen.findByText("Message is required")).toBeInTheDocument();
+    await user.type(screen.getByLabelText("Reply"), "   ");
+    expect(screen.getByRole("button", { name: "Send reply" })).toBeDisabled();
+
     expect(mockedAxios.post).not.toHaveBeenCalled();
   });
 
@@ -72,5 +74,56 @@ describe("ReplyForm", () => {
 
     expect(await screen.findByText("Ticket not found")).toBeInTheDocument();
     expect(textarea).toHaveValue("Hello");
+  });
+
+  it("disables the polish button while the reply is empty", () => {
+    renderForm();
+
+    expect(screen.getByRole("button", { name: "Polish" })).toBeDisabled();
+  });
+
+  it("polishes the reply and replaces the textarea with the result", async () => {
+    mockedAxios.post.mockResolvedValue({
+      data: { body: "Polished version of the reply." },
+    });
+    const user = renderForm();
+
+    const textarea = screen.getByLabelText("Reply");
+    await user.type(textarea, "the reply text");
+    await user.click(screen.getByRole("button", { name: "Polish" }));
+
+    await waitFor(() => {
+      expect(mockedAxios.post).toHaveBeenCalledWith(
+        `/tickets/${ticket.id}/polish-reply`,
+        { body: "the reply text" },
+      );
+    });
+    await waitFor(() =>
+      expect(textarea).toHaveValue("Polished version of the reply."),
+    );
+    expect(mockedAxios.post).not.toHaveBeenCalledWith(
+      expect.stringContaining("/replies"),
+      expect.anything(),
+    );
+  });
+
+  it("shows a server error when polishing fails", async () => {
+    mockedAxios.isAxiosError.mockImplementation(
+      (err: unknown) =>
+        typeof err === "object" && err !== null && "response" in err,
+    );
+    mockedAxios.post.mockRejectedValue({
+      response: { data: { error: "AI features are not configured" } },
+    });
+    const user = renderForm();
+
+    const textarea = screen.getByLabelText("Reply");
+    await user.type(textarea, "the reply text");
+    await user.click(screen.getByRole("button", { name: "Polish" }));
+
+    expect(
+      await screen.findByText("AI features are not configured"),
+    ).toBeInTheDocument();
+    expect(textarea).toHaveValue("the reply text");
   });
 });

@@ -26,8 +26,10 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^4.0.72",
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.1",
+    "ai": "^7.0.109",
     "better-auth": "^1.6.29",
     "code": "workspace:*",
     "cors": "^2.8.6",

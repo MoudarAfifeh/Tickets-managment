@@ -86,3 +86,10 @@ export const createReplySchema = z.object({
 });
 
 export type CreateReplyInput = z.infer<typeof createReplySchema>;
+
+/** Body for `POST /api/tickets/:id/polish-reply`. */
+export const polishReplySchema = z.object({
+  body: z.string().trim().min(1, "Message is required"),
+});
+
+export type PolishReplyInput = z.infer<typeof polishReplySchema>;

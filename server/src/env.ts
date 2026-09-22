@@ -20,3 +20,11 @@ if (!process.env.WEBHOOK_SECRET) {
     "Warning: WEBHOOK_SECRET is not set — POST /api/webhooks/inbound-email will return 500 until it is.",
   );
 }
+
+// Not fatal: the app runs fine without it, but POST /api/tickets/:id/polish-reply
+// rejects every request with 500 until set.
+if (!process.env.OPENAI_API_KEY) {
+  console.warn(
+    "Warning: OPENAI_API_KEY is not set — POST /api/tickets/:id/polish-reply will return 500 until it is.",
+  );
+}

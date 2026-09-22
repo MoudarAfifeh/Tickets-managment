@@ -499,8 +499,24 @@ test.describe("Ticket assignment (/tickets/:id)", () => {
     // The assign Select is the only combobox on the ticket detail page; its
     // trigger has a fixed aria-label ("Assigned to") independent of the
     // currently selected value.
-    await page.getByRole("combobox", { name: "Assigned to" }).click();
-    await page.getByRole("option", { name: optionName, exact: true }).click();
+    const combobox = page.getByRole("combobox", { name: "Assigned to" });
+    const option = page.getByRole("option", { name: optionName, exact: true });
+
+    // Unlike the Status/Category selects, this one's options depend on a
+    // separate `/api/tickets/assignees` fetch that can still be in flight
+    // when the popup first opens — especially under Playwright's default
+    // parallel workers, where CPU contention slows that request down. If it
+    // resolves mid-interaction, the options list re-renders and can detach
+    // the very option Playwright is mid-click on ("element was detached
+    // from the DOM, retrying"), and the popup sometimes closes outright in
+    // that window rather than just re-rendering its contents — so retrying
+    // the click alone isn't enough, since the option never reappears.
+    // Retry the whole open-then-click sequence instead, so a closed/detached
+    // popup gets reopened and re-clicked.
+    await expect(async () => {
+      await combobox.click();
+      await option.click({ timeout: 2_000 });
+    }).toPass({ timeout: 15_000 });
   }
 
   test("assigning to an agent via the select is reflected on the detail page and the tickets list, and unassigning reverts both", async ({
@@ -680,9 +696,9 @@ test.describe("Ticket status & category (/tickets/:id)", () => {
   });
 });
 
-// Replying to a ticket (POST /api/tickets/:id/messages, backed by the Reply
+// Replying to a ticket (POST /api/tickets/:id/replies, backed by the Reply
 // form in the left-column card's CardFooter). Every ticket detail response
-// (GET, and every mutation) includes the current `messages` array, so a
+// (GET, and every mutation) includes the current `replies` array, so a
 // successful reply shows up in the thread via the ["ticket", id] query
 // invalidation the mutation triggers, with no full page reload.
 test.describe("Ticket replies (/tickets/:id)", () => {
@@ -726,10 +742,10 @@ test.describe("Ticket replies (/tickets/:id)", () => {
   });
 });
 
-test.describe("POST /api/tickets/:id/messages (API)", () => {
+test.describe("POST /api/tickets/:id/replies (API)", () => {
   test("without auth returns 401", async ({ request }) => {
     const res = await request.post(
-      `/api/tickets/does-not-exist-${unique()}/messages`,
+      `/api/tickets/does-not-exist-${unique()}/replies`,
       { data: { body: "test" } },
     );
     expect(res.status()).toBe(401);
@@ -741,7 +757,7 @@ test.describe("POST /api/tickets/:id/messages (API)", () => {
     test("400s for an empty/whitespace-only body", async ({ request }) => {
       const ticket = await seedTicket(request);
 
-      const res = await request.post(`/api/tickets/${ticket.id}/messages`, {
+      const res = await request.post(`/api/tickets/${ticket.id}/replies`, {
         data: { body: "   " },
       });
       expect(res.status()).toBe(400);
@@ -750,7 +766,7 @@ test.describe("POST /api/tickets/:id/messages (API)", () => {
 
     test("404s for a nonexistent ticket", async ({ request }) => {
       const res = await request.post(
-        `/api/tickets/does-not-exist-${unique()}/messages`,
+        `/api/tickets/does-not-exist-${unique()}/replies`,
         { data: { body: "test" } },
       );
       expect(res.status()).toBe(404);
