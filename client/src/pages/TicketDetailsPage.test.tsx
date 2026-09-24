@@ -87,6 +87,8 @@ describe("TicketDetailsPage", () => {
       await screen.findByRole("heading", { name: baseTicket.subject }),
     ).toBeInTheDocument();
     expect(screen.getByText(baseTicket.body)).toBeInTheDocument();
+    // TicketSummary
+    expect(screen.getByRole("button", { name: "Summarize" })).toBeInTheDocument();
     // Replies
     expect(screen.getByText(agentReply.body)).toBeInTheDocument();
     // ReplyForm

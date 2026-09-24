@@ -17,11 +17,18 @@ export function renderWithProviders(
     defaultOptions: { queries: { retry: false } },
   });
 
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={options?.initialEntries}>
-        {ui}
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
+  // Wrapped via the `wrapper` option (rather than nesting providers around
+  // `ui` directly) so the returned `rerender` re-applies the same providers
+  // instead of unmounting them.
+  function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={options?.initialEntries}>
+          {children}
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+  }
+
+  return render(ui, { wrapper: Wrapper });
 }

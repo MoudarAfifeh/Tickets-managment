@@ -287,3 +287,52 @@ ticketsRouter.post("/:id/polish-reply", requireOpenAiKey, async (req, res) => {
 
   res.json({ body: signed });
 });
+
+// Summarizes the ticket's own message plus its full reply thread. No
+// request body — the ticket id is all the input this needs. Not persisted:
+// the client re-calls this whenever the thread changes (see TicketSummary.tsx).
+ticketsRouter.post("/:id/summarize", requireOpenAiKey, async (req, res) => {
+  const id = requireParam("id", req, res);
+  if (id === null) return;
+
+  const ticket = await prisma.ticket.findUnique({
+    where: { id },
+    include: {
+      replies: {
+        select: {
+          body: true,
+          senderType: true,
+          author: { select: { name: true } },
+        },
+        orderBy: { createdAt: "asc" },
+      },
+    },
+  });
+  if (!ticket) {
+    res.status(404).json({ error: "Ticket not found" });
+    return;
+  }
+
+  const customerName =
+    ticket.senderName ?? greetingNameFromEmail(ticket.senderEmail);
+  const conversation = [
+    `${customerName} (customer): ${ticket.body}`,
+    ...ticket.replies.map((reply) =>
+      reply.senderType === "agent"
+        ? `${reply.author?.name ?? "Agent"} (agent): ${reply.body}`
+        : `${customerName} (customer): ${reply.body}`,
+    ),
+  ].join("\n\n");
+
+  const { text } = await generateText({
+    model: openai("gpt-5-nano"),
+    instructions:
+      "You are an assistant that summarizes support ticket conversations for " +
+      "agents. Write a concise summary (2-4 sentences) covering the customer's " +
+      "issue and the current state of the conversation. Respond with only the " +
+      "summary text — no preamble, headings, or bullet points.",
+    prompt: conversation,
+  });
+
+  res.json({ summary: text });
+});

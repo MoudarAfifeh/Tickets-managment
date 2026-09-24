@@ -14,7 +14,7 @@ function Replies({ ticket }: RepliesProps) {
   const customerName = ticket.senderName || ticket.senderEmail;
 
   return (
-    <CardContent className="space-y-4 border-t pt-4">
+    <CardContent className="max-h-[32rem] space-y-4 overflow-y-auto border-t pt-4">
       {ticket.replies.map((reply) => {
         const displayName =
           reply.senderType === "agent"

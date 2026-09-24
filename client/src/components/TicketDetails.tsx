@@ -6,8 +6,9 @@ type TicketDetailsProps = {
   ticket: TicketDetail;
 };
 
-// The ticket's own content — subject, sender, date and message. The reply
-// thread and the reply box are separate components (Replies, ReplyForm).
+// The ticket's own content — subject, sender, date and message. The AI
+// summary, reply thread and reply box are separate components (TicketSummary,
+// Replies, ReplyForm).
 function TicketDetails({ ticket }: TicketDetailsProps) {
   const senderName = ticket.senderName || ticket.senderEmail;
 

@@ -7,6 +7,7 @@ import NavBar from "../components/NavBar";
 import Replies from "../components/Replies";
 import ReplyForm from "../components/ReplyForm";
 import TicketDetails from "../components/TicketDetails";
+import TicketSummary from "../components/TicketSummary";
 import UpdateTicket from "../components/UpdateTicket";
 import { api } from "@/lib/api";
 import type { TicketDetail } from "@/types/ticket";
@@ -102,6 +103,7 @@ function TicketDetailsPage() {
           <div className="grid gap-6 lg:grid-cols-5">
             <Card className="lg:col-span-3">
               <TicketDetails ticket={ticket} />
+              <TicketSummary ticket={ticket} />
               <Replies ticket={ticket} />
               <CardFooter className="flex-col items-stretch gap-2 border-t">
                 <ReplyForm ticket={ticket} />
