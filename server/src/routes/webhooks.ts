@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { inboundEmailSchema } from "code";
 import { requireWebhookSecret } from "../middleware/requireWebhookSecret";
-import { classifyTicketInBackground } from "../lib/classifyTicket";
+import { enqueueTicketClassification } from "../lib/classifyTicket";
 import { parseBody } from "../lib/validateBody";
 import { prisma } from "../db";
 
@@ -62,9 +62,10 @@ webhooksRouter.post(
       },
     });
 
-    // Not awaited: classification runs in the background so a slow or failing
+    // Not awaited: this only enqueues the job (a fast insert), and the actual
+    // classification runs later in the pg-boss worker, so a slow or failing
     // OpenAI call never delays this response.
-    classifyTicketInBackground(ticket);
+    enqueueTicketClassification(ticket);
 
     res.status(201).json({ ticket, threaded: false });
   },

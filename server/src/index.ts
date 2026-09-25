@@ -10,6 +10,8 @@ import { usersRouter } from "./routes/users";
 import { ticketsRouter } from "./routes/tickets";
 import { webhooksRouter } from "./routes/webhooks";
 import { prisma } from "./db";
+import { boss } from "./lib/boss";
+import { startClassifyTicketWorker } from "./lib/classifyTicket";
 
 const app = express();
 const port = process.env.PORT ?? 3000;
@@ -38,6 +40,9 @@ app.use("/api/tickets", ticketsRouter);
 app.use("/api/webhooks", webhooksRouter);
 
 app.use(errorHandler);
+
+await boss.start();
+await startClassifyTicketWorker();
 
 app.listen(port, () => {
   console.log(`Backend listening on http://localhost:${port}`);
