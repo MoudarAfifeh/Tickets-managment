@@ -44,26 +44,35 @@ export function enqueueTicketClassification(ticket: ClassifyTicketJobData): void
 export async function startClassifyTicketWorker(): Promise<void> {
   await boss.createQueue(CLASSIFY_TICKET_QUEUE);
 
-  await boss.work<ClassifyTicketJobData>(CLASSIFY_TICKET_QUEUE, async ([job]: Job<ClassifyTicketJobData>[]) => {
-    if (!job || !process.env.OPENAI_API_KEY) return;
+  // Defaults (batchSize 1, pollingIntervalSeconds 2) drain a burst of
+  // arriving tickets at roughly one every 2s — several concurrent workers
+  // polling faster keeps a burst from queueing up behind a single slow poll
+  // loop. batchSize stays at its default of 1, so the handler below still
+  // gets exactly one job per call.
+  await boss.work<ClassifyTicketJobData>(
+    CLASSIFY_TICKET_QUEUE,
+    { localConcurrency: 5, pollingIntervalSeconds: 0.5 },
+    async ([job]: Job<ClassifyTicketJobData>[]) => {
+      if (!job || !process.env.OPENAI_API_KEY) return;
 
-    const { id, subject, body } = job.data;
+      const { id, subject, body } = job.data;
 
-    const { output } = await generateText({
-      model: openai("gpt-5-nano"),
-      instructions:
-        "Classify a customer support ticket into exactly one category based on " +
-        "its subject and body: `general_question` for anything that doesn't fit " +
-        "the other two, `technical_question` for bugs, errors, or how-something-" +
-        "works questions, and `refund_request` for anything about refunds, " +
-        "charges, or cancellations.",
-      prompt: `Subject: ${subject}\n\nBody: ${body}`,
-      output: Output.object({ schema: categorySchema }),
-    });
+      const { output } = await generateText({
+        model: openai("gpt-5-nano"),
+        instructions:
+          "Classify a customer support ticket into exactly one category based on " +
+          "its subject and body: `general_question` for anything that doesn't fit " +
+          "the other two, `technical_question` for bugs, errors, or how-something-" +
+          "works questions, and `refund_request` for anything about refunds, " +
+          "charges, or cancellations.",
+        prompt: `Subject: ${subject}\n\nBody: ${body}`,
+        output: Output.object({ schema: categorySchema }),
+      });
 
-    await prisma.ticket.updateMany({
-      where: { id, category: "general_question" },
-      data: { category: output.category },
-    });
-  });
+      await prisma.ticket.updateMany({
+        where: { id, category: "general_question" },
+        data: { category: output.category },
+      });
+    },
+  );
 }

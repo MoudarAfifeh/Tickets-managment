@@ -196,13 +196,15 @@ describe("UpdateTicket — status", () => {
     expect(statusCombobox()).toHaveTextContent("resolved");
   });
 
-  it("lists all three statuses as options", async () => {
+  it("lists all statuses as options", async () => {
     const user = renderUpdateTicket();
 
     await openSelect(user, "Status");
 
     const options = screen.getAllByRole("option");
     expect(options.map((o) => o.textContent)).toEqual([
+      "new",
+      "processing",
       "open",
       "resolved",
       "closed",

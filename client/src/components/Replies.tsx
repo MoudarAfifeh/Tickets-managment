@@ -10,7 +10,12 @@ type RepliesProps = {
 function Replies({ ticket }: RepliesProps) {
   if (ticket.replies.length === 0) return null;
 
-  // A "customer" reply has no author — its sender is the ticket's own sender.
+  // A "customer" reply has no author — its sender is the ticket's own
+  // sender. An "ai" reply also has no author — it's the auto-resolver
+  // posting on the customer's behalf (see autoResolveTicket.ts) — but it's
+  // deliberately displayed identically to a human agent reply, with no
+  // visible AI attribution, since the customer-facing message is meant to
+  // read as an ordinary support reply.
   const customerName = ticket.senderName || ticket.senderEmail;
 
   return (
@@ -19,7 +24,10 @@ function Replies({ ticket }: RepliesProps) {
         const displayName =
           reply.senderType === "agent"
             ? (reply.author?.name ?? "Agent")
-            : customerName;
+            : reply.senderType === "ai"
+              ? "Moudar Afifeh Support"
+              : customerName;
+        const badgeLabel = reply.senderType === "ai" ? "agent" : reply.senderType;
         return (
           <div key={reply.id} className="flex items-start gap-3">
             <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
@@ -32,11 +40,13 @@ function Replies({ ticket }: RepliesProps) {
                 </span>
                 <Badge
                   variant={
-                    reply.senderType === "agent" ? "secondary" : "outline"
+                    reply.senderType === "agent" || reply.senderType === "ai"
+                      ? "secondary"
+                      : "outline"
                   }
                   className="capitalize"
                 >
-                  {reply.senderType}
+                  {badgeLabel}
                 </Badge>
                 <span className="ml-auto text-xs text-muted-foreground">
                   {new Date(reply.createdAt).toLocaleString()}

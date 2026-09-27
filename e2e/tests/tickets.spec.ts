@@ -43,8 +43,26 @@ async function seedTicket(
 
   expect(res.status()).toBe(201);
   const json = await res.json();
+  const id = json.ticket.id as string;
+
+  // A freshly created ticket starts at status "new" and only reaches "open"
+  // once the fire-and-forget auto-resolve worker's pg-boss job runs (see
+  // server/src/lib/autoResolveTicket.ts / ticket-auto-resolve.spec.ts for
+  // dedicated coverage of that transition itself). OPENAI_API_KEY is unset
+  // in this env, so it always settles on "open" — but not necessarily by
+  // the time this function returns, so callers throughout this file (which
+  // assume an already-"open" ticket, not the transition) would otherwise
+  // race the worker. Wait for it here once, centrally, instead of adding a
+  // wait to every assertion that happens to check status.
+  await expect(async () => {
+    const ticketRes = await request.get(`/api/tickets/${id}`);
+    expect(ticketRes.status()).toBe(200);
+    const ticketJson = await ticketRes.json();
+    expect(ticketJson.ticket.status).toBe("open");
+  }).toPass({ timeout: 15_000 });
+
   return {
-    id: json.ticket.id as string,
+    id,
     senderEmail,
     fromName: overrides.fromName,
     subject,

@@ -68,9 +68,13 @@ async function updateTicketCategory(
 // "Unassigned" option uses this sentinel and gets mapped back to null.
 const UNASSIGNED = "__unassigned__";
 
-// Gives the status control an at-a-glance severity cue: open (active, needs
-// attention) in green, resolved (done) in blue, closed (archived) muted.
+// Gives the status control an at-a-glance severity cue: new (unseen) muted,
+// processing (AI working on it) amber, open (active, needs attention) in
+// green, resolved (done) in blue, closed (archived) muted.
 const STATUS_TRIGGER_CLASS: Record<TicketStatus, string> = {
+  new: "border-border bg-transparent text-foreground",
+  processing:
+    "border-transparent bg-amber-500 text-white hover:bg-amber-500/90 dark:bg-amber-500/90 dark:hover:bg-amber-500",
   open: "border-transparent bg-green-600 text-white hover:bg-green-600/90 dark:bg-green-500/90 dark:hover:bg-green-500",
   resolved:
     "border-transparent bg-blue-600 text-white hover:bg-blue-600/90 dark:bg-blue-500/90 dark:hover:bg-blue-500",

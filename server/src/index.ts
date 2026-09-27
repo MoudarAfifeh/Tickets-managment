@@ -12,6 +12,7 @@ import { webhooksRouter } from "./routes/webhooks";
 import { prisma } from "./db";
 import { boss } from "./lib/boss";
 import { startClassifyTicketWorker } from "./lib/classifyTicket";
+import { startAutoResolveTicketWorker } from "./lib/autoResolveTicket";
 
 const app = express();
 const port = process.env.PORT ?? 3000;
@@ -43,6 +44,7 @@ app.use(errorHandler);
 
 await boss.start();
 await startClassifyTicketWorker();
+await startAutoResolveTicketWorker();
 
 app.listen(port, () => {
   console.log(`Backend listening on http://localhost:${port}`);

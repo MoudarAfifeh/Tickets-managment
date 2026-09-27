@@ -2,6 +2,7 @@ import { Router } from "express";
 import { inboundEmailSchema } from "code";
 import { requireWebhookSecret } from "../middleware/requireWebhookSecret";
 import { enqueueTicketClassification } from "../lib/classifyTicket";
+import { enqueueTicketAutoResolve } from "../lib/autoResolveTicket";
 import { parseBody } from "../lib/validateBody";
 import { prisma } from "../db";
 
@@ -24,8 +25,18 @@ function stripReplyPrefix(subject: string): string {
  * forwards mail to us flattens it into `inboundEmailSchema`'s shape.
  *
  * Basic threading: a follow-up email from the same address with the same
- * subject (ignoring `Re:`/`Fwd:` and case) folds into the existing open
- * ticket instead of opening a new one.
+ * subject (ignoring `Re:`/`Fwd:` and case) folds into the existing ticket
+ * instead of opening a new one, as long as that ticket hasn't been resolved
+ * or closed yet.
+ *
+ * A newly created ticket starts at `status: "new"` and immediately gets
+ * queued for both classification and AI auto-resolve (see
+ * `classifyTicket.ts` / `autoResolveTicket.ts`) — the latter is what moves it
+ * through `processing` to either `resolved` or `open`. The threading match
+ * below has to include `new`/`processing`, not just `open`: a fast
+ * back-to-back follow-up email can easily arrive before that pg-boss job has
+ * even run, and without this it would silently open a duplicate ticket
+ * instead of folding in.
  */
 webhooksRouter.post(
   "/inbound-email",
@@ -38,7 +49,7 @@ webhooksRouter.post(
 
     const existing = await prisma.ticket.findFirst({
       where: {
-        status: "open",
+        status: { in: ["new", "processing", "open"] },
         senderEmail: data.from,
         subject: { equals: subject, mode: "insensitive" },
       },
@@ -57,15 +68,16 @@ webhooksRouter.post(
         bodyHtml: data.bodyHtml ?? null,
         senderEmail: data.from,
         senderName: data.fromName ?? null,
-        status: "open",
+        status: "new",
         category: "general_question",
       },
     });
 
-    // Not awaited: this only enqueues the job (a fast insert), and the actual
-    // classification runs later in the pg-boss worker, so a slow or failing
+    // Not awaited: both of these only enqueue a job (a fast insert), and the
+    // actual work runs later in their pg-boss workers, so a slow or failing
     // OpenAI call never delays this response.
     enqueueTicketClassification(ticket);
+    enqueueTicketAutoResolve(ticket);
 
     res.status(201).json({ ticket, threaded: false });
   },

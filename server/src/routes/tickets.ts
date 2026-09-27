@@ -69,7 +69,11 @@ ticketsRouter.get("/", async (req, res) => {
     parsed.data;
 
   const where: Prisma.TicketWhereInput = {
-    ...(status && { status }),
+    // No status filter selected: hide tickets the AI auto-resolver is
+    // currently working on (see autoResolveTicket.ts) — they're not
+    // actionable yet, so they'd just be noise in the default queue. An
+    // explicit `?status=processing` still finds them.
+    ...(status ? { status } : { status: { not: "processing" } }),
     ...(category && { category }),
     ...(search && {
       OR: [

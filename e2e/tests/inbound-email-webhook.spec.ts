@@ -87,7 +87,7 @@ test.describe("POST /api/webhooks/inbound-email", () => {
       bodyHtml,
       senderEmail,
       senderName,
-      status: "open",
+      status: "new",
       category: "general_question",
     });
     const ticketId = createJson.ticket.id;

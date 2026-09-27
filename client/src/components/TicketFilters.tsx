@@ -10,6 +10,8 @@ import {
 import { CATEGORY_LABELS } from "@/components/TicketsTable";
 
 const STATUS_LABELS: Record<TicketStatus, string> = {
+  new: "New",
+  processing: "Processing",
   open: "Open",
   resolved: "Resolved",
   closed: "Closed",
@@ -41,7 +43,7 @@ function TicketFilters({ value, onChange }: TicketFiltersProps) {
           onChange({ ...value, status: status ?? "all" })
         }
       >
-        <SelectTrigger className="w-40">
+        <SelectTrigger className="w-40" aria-label="Status">
           <SelectValue placeholder="Status" />
         </SelectTrigger>
         <SelectContent>
@@ -59,7 +61,7 @@ function TicketFilters({ value, onChange }: TicketFiltersProps) {
           onChange({ ...value, category: category ?? "all" })
         }
       >
-        <SelectTrigger className="w-48">
+        <SelectTrigger className="w-48" aria-label="Category">
           <SelectValue placeholder="Category" />
         </SelectTrigger>
         <SelectContent>

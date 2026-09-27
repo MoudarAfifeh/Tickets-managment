@@ -15,7 +15,14 @@ enum Role {
   agent
 }
 
+// Lifecycle: a ticket starts as `new`, moves to `processing` while the AI
+// auto-resolver (see server/src/lib/autoResolveTicket.ts) is attempting to
+// resolve it against the knowledge base, then becomes either `resolved` (AI
+// or human) or falls back to `open` for a human agent to handle. `closed` is
+// unchanged — an agent archives a resolved ticket into it by hand.
 enum TicketStatus {
+  new
+  processing
   open
   resolved
   closed
@@ -27,9 +34,13 @@ enum TicketCategory {
   refund_request
 }
 
+// `ai` is a reply the auto-resolver posted on the customer's behalf when it
+// could resolve the ticket from the knowledge base alone — no `author`, same
+// as `customer` replies, but distinguished by this sender type.
 enum SenderType {
   agent
   customer
+  ai
 }
 
 model User {
@@ -74,7 +85,7 @@ model Ticket {
   body         String
   // Original HTML body, when the email had one.
   bodyHtml     String?
-  status       TicketStatus   @default(open)
+  status       TicketStatus   @default(new)
   category     TicketCategory @default(general_question)
   // Display name of the sender; the email need not carry one.
   senderName   String?

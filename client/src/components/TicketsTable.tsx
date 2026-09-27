@@ -33,6 +33,8 @@ export const STATUS_VARIANT: Record<
   TicketListItem["status"],
   "default" | "secondary" | "outline"
 > = {
+  new: "outline",
+  processing: "secondary",
   open: "default",
   resolved: "secondary",
   closed: "outline",

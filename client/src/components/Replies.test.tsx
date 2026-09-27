@@ -19,6 +19,14 @@ const customerReply: Reply = {
   author: null,
 };
 
+const aiReply: Reply = {
+  id: "reply-4",
+  body: "Here's how to reset your password: go to the login page and click Forgot Password.",
+  senderType: "ai",
+  createdAt: "2026-09-15T08:05:00.000Z",
+  author: null,
+};
+
 describe("Replies", () => {
   it("renders nothing when the ticket has no replies", () => {
     const { container } = render(<Replies ticket={makeTicket()} />);
@@ -104,6 +112,44 @@ describe("Replies", () => {
       );
 
       expect(screen.getByText("alice@customer.example")).toBeInTheDocument();
+    });
+  });
+
+  describe("ai replies", () => {
+    // Deliberately indistinguishable from a human agent reply in the UI — no
+    // "AI"/"ai" attribution is shown to the customer or the agent viewing
+    // the thread.
+    it("renders an ai reply under 'Moudar Afifeh Support' with an agent badge", () => {
+      render(<Replies ticket={makeTicket({ replies: [aiReply] })} />);
+
+      expect(screen.getByText(aiReply.body)).toBeInTheDocument();
+      expect(screen.getByText("Moudar Afifeh Support")).toBeInTheDocument();
+      expect(screen.getByText("agent")).toBeInTheDocument();
+      expect(screen.queryByText("ai")).not.toBeInTheDocument();
+      expect(screen.getByText("MA")).toBeInTheDocument();
+    });
+
+    it("never shows the ticket sender's name for an ai reply", () => {
+      render(<Replies ticket={makeTicket({ replies: [aiReply] })} />);
+
+      expect(screen.queryByText("Alice Turner")).not.toBeInTheDocument();
+    });
+
+    it("styles the ai badge the same as a human agent badge", () => {
+      render(
+        <Replies
+          ticket={makeTicket({ replies: [agentReply, customerReply, aiReply] })}
+        />,
+      );
+
+      const agentBadges = screen.getAllByText("agent");
+      const customerBadge = screen.getByText("customer");
+      expect(agentBadges).toHaveLength(2);
+      for (const badge of agentBadges) {
+        expect(badge).toHaveClass("bg-secondary");
+      }
+      expect(customerBadge).toHaveClass("border-border");
+      expect(customerBadge).not.toHaveClass("bg-secondary");
     });
   });
 
