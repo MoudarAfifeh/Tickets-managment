@@ -112,6 +112,81 @@ ticketsRouter.get("/assignees", async (_req, res) => {
   res.json({ users });
 });
 
+const TICKETS_PER_DAY_WINDOW = 30;
+
+// UTC calendar-day bucketing (no per-user timezone setting exists elsewhere
+// in this app). Always returns exactly `TICKETS_PER_DAY_WINDOW` entries,
+// oldest first, ending today — days with no tickets still appear as `count: 0`
+// so the dashboard chart has a continuous timeline.
+function startOfUtcDay(date: Date): Date {
+  return new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+  );
+}
+
+async function ticketsPerDay(): Promise<{ date: string; count: number }[]> {
+  const todayUtc = startOfUtcDay(new Date());
+  const start = new Date(todayUtc);
+  start.setUTCDate(start.getUTCDate() - (TICKETS_PER_DAY_WINDOW - 1));
+
+  const recentTickets = await prisma.ticket.findMany({
+    where: { createdAt: { gte: start } },
+    select: { createdAt: true },
+  });
+
+  const counts = new Map<string, number>();
+  for (let i = 0; i < TICKETS_PER_DAY_WINDOW; i++) {
+    const day = new Date(start);
+    day.setUTCDate(day.getUTCDate() + i);
+    counts.set(day.toISOString().slice(0, 10), 0);
+  }
+  for (const ticket of recentTickets) {
+    const key = ticket.createdAt.toISOString().slice(0, 10);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+
+  return Array.from(counts.entries(), ([date, count]) => ({ date, count }));
+}
+
+// Powers the dashboard page. Registered before GET /:id so "stats" isn't
+// swallowed by the :id param, same reasoning as "assignees" above.
+ticketsRouter.get("/stats", async (_req, res) => {
+  const [totalTickets, openTickets, aiResolvedCount, resolvedTickets, perDay] =
+    await Promise.all([
+      prisma.ticket.count(),
+      prisma.ticket.count({ where: { status: "open" } }),
+      prisma.ticket.count({
+        where: { replies: { some: { senderType: "ai" } } },
+      }),
+      // Only `resolvedAt` (not current status) tells us a ticket was ever
+      // resolved — a `closed` ticket keeps its original resolvedAt (see
+      // PATCH /:id/status above), so this also covers resolved-then-closed
+      // tickets.
+      prisma.ticket.findMany({
+        where: { resolvedAt: { not: null } },
+        select: { createdAt: true, resolvedAt: true },
+      }),
+      ticketsPerDay(),
+    ]);
+
+  const averageResolutionMs = resolvedTickets.length
+    ? resolvedTickets.reduce(
+        (sum, t) => sum + (t.resolvedAt!.getTime() - t.createdAt.getTime()),
+        0,
+      ) / resolvedTickets.length
+    : null;
+
+  res.json({
+    totalTickets,
+    openTickets,
+    aiResolvedCount,
+    aiResolvedPercentage:
+      totalTickets > 0 ? (aiResolvedCount / totalTickets) * 100 : 0,
+    averageResolutionMs,
+    ticketsPerDay: perDay,
+  });
+});
+
 ticketsRouter.get("/:id", async (req, res) => {
   const ticket = await prisma.ticket.findUnique({
     where: { id: req.params.id },
@@ -176,9 +251,19 @@ ticketsRouter.patch("/:id/status", async (req, res) => {
     return;
   }
 
+  // `resolvedAt` marks when the ticket became resolved, for the dashboard's
+  // average-resolution-time stat: set it on entering `resolved`, clear it on
+  // leaving the resolved/closed lifecycle entirely (reopened), and otherwise
+  // leave it alone — moving on to `closed` keeps the original resolution
+  // timestamp rather than overwriting it with the archival time.
   const updated = await prisma.ticket.update({
     where: { id },
-    data: { status: data.status },
+    data: {
+      status: data.status,
+      ...(data.status === "resolved" && { resolvedAt: new Date() }),
+      ...(data.status !== "resolved" &&
+        data.status !== "closed" && { resolvedAt: null }),
+    },
     include: ticketDetailInclude,
   });
 

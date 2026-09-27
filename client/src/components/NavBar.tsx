@@ -19,6 +19,12 @@ function NavBar() {
         >
           Tickets
         </Link>
+        <Link
+          to="/dashboard"
+          className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+        >
+          Dashboard
+        </Link>
         {data?.user.role === "admin" && (
           <Link
             to="/users"

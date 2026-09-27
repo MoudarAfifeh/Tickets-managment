@@ -95,6 +95,12 @@ model Ticket {
   replies      Reply[]
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
+  // Set when the ticket transitions into `resolved` (by the AI auto-resolver
+  // or a human agent via PATCH /:id/status), cleared if it's reopened, and
+  // left untouched when it moves on to `closed` — so it keeps meaning "when
+  // this ticket was resolved" even after archival. Powers the dashboard's
+  // average-resolution-time stat.
+  resolvedAt   DateTime?
 
   @@map("ticket")
 }

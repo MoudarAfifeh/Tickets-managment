@@ -8,6 +8,7 @@ import Login from "./pages/Login";
 import Tickets from "./pages/Tickets";
 import TicketDetailsPage from "./pages/TicketDetailsPage";
 import Users from "./pages/Users";
+import Dashboard from "./pages/Dashboard";
 
 function App() {
   return (
@@ -33,6 +34,14 @@ function App() {
         element={
           <RequireAuth>
             <TicketDetailsPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/dashboard"
+        element={
+          <RequireAuth>
+            <Dashboard />
           </RequireAuth>
         }
       />

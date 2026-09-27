@@ -5,9 +5,10 @@ import { openai } from "@ai-sdk/openai";
 import { generateText, Output } from "ai";
 import type { Job } from "pg-boss";
 import { z } from "zod";
-import type { Ticket } from "../generated/prisma/client";
+import { Prisma, type Ticket } from "../generated/prisma/client";
 import { boss } from "./boss";
 import { prisma } from "../db";
+import { AI_AGENT_EMAIL } from "./aiAgent";
 
 export const AUTO_RESOLVE_TICKET_QUEUE = "auto-resolve-ticket";
 
@@ -64,23 +65,43 @@ export function enqueueTicketAutoResolve(ticket: AutoResolveTicketJobData): void
 
 /**
  * Registers the worker that processes `auto-resolve-ticket` jobs: moves the
- * ticket `new` -> `processing`, asks gpt-5-nano whether the knowledge base
- * alone resolves it, and lands it on either `resolved` (with an `ai` reply
- * posted to the customer) or `open` (falls back to a human agent, unchanged
- * from before this feature existed).
+ * ticket `new` -> `processing` and assigns it to the AI agent user (seeded by
+ * prisma/seed.ts — see aiAgent.ts) for the duration of the attempt, asks
+ * gpt-5-nano whether the knowledge base alone resolves it, and lands it on
+ * either `resolved` (with an `ai` reply posted to the customer, still
+ * assigned to the AI agent) or `open` and unassigned (falls back to a human
+ * agent to pick up).
  *
  * `OPENAI_API_KEY` is a non-fatal env var elsewhere in this app (see
  * `requireOpenAiKey`) — without it, this can't attempt resolution at all, so
- * it moves the ticket straight to `open` rather than leaving it stuck at
- * `new` forever.
+ * it moves the ticket straight to `open` (never assigned to the AI agent,
+ * since no attempt was made) rather than leaving it stuck at `new` forever.
  *
- * Every path is wrapped so the ticket can never get stuck in `processing`:
- * unlike classification (where a failure just leaves a default value in
- * place), a ticket stuck in `processing` would be permanently hidden from
- * the ticket list (see `GET /api/tickets`), so any failure here falls back
- * to `open` instead of leaving the job to pg-boss's retry policy.
+ * Every path is wrapped so the ticket can never get stuck in `processing`
+ * (or assigned to the AI agent) once it's no longer being worked on: unlike
+ * classification (where a failure just leaves a default value in place), a
+ * ticket stuck in `processing` would be permanently hidden from the ticket
+ * list (see `GET /api/tickets`), so any failure here falls back to `open` and
+ * unassigned instead of leaving the job to pg-boss's retry policy.
  */
 export async function startAutoResolveTicketWorker(): Promise<void> {
+  const aiAgent = await prisma.user
+    .findUniqueOrThrow({ where: { email: AI_AGENT_EMAIL }, select: { id: true } })
+    .catch((err: unknown) => {
+      // Only a genuine "no such row" (P2025) means the seed hasn't run —
+      // anything else (e.g. a dropped DB connection) is a different problem
+      // and shouldn't be misreported as a missing seed.
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === "P2025"
+      ) {
+        console.error(
+          `AI agent user (${AI_AGENT_EMAIL}) not found — run \`bunx --bun prisma db seed\` first.`,
+        );
+      }
+      throw err;
+    });
+
   await boss.createQueue(AUTO_RESOLVE_TICKET_QUEUE);
 
   // Defaults (batchSize 1, pollingIntervalSeconds 2) drain a burst of
@@ -105,7 +126,7 @@ export async function startAutoResolveTicketWorker(): Promise<void> {
 
       const claimed = await prisma.ticket.updateMany({
         where: { id, status: "new" },
-        data: { status: "processing" },
+        data: { status: "processing", assignedToId: aiAgent.id },
       });
       // Something else already moved it on (e.g. a human got to it first) —
       // leave it alone rather than reopening a decision that's not ours.
@@ -154,17 +175,20 @@ export async function startAutoResolveTicketWorker(): Promise<void> {
             });
             await tx.ticket.update({
               where: { id },
-              data: { status: "resolved" },
+              data: { status: "resolved", resolvedAt: new Date() },
             });
           } else {
-            await tx.ticket.update({ where: { id }, data: { status: "open" } });
+            await tx.ticket.update({
+              where: { id },
+              data: { status: "open", assignedToId: null },
+            });
           }
         });
       } catch (err: unknown) {
         console.error(`Ticket auto-resolve failed for ${id}:`, err);
         await prisma.ticket.updateMany({
           where: { id, status: "processing" },
-          data: { status: "open" },
+          data: { status: "open", assignedToId: null },
         });
       }
     },

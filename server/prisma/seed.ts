@@ -1,6 +1,7 @@
 import { hashPassword } from "better-auth/crypto";
 import { Role } from "../src/generated/prisma/enums";
 import { prisma } from "../src/db";
+import { AI_AGENT_EMAIL, AI_AGENT_NAME } from "../src/lib/aiAgent";
 
 async function seedCredentialUser({
   email,
@@ -50,6 +51,23 @@ async function seedCredentialUser({
   console.log(`Seeded ${role} user: ${email}`);
 }
 
+// The auto-resolver (autoResolveTicket.ts) assigns tickets to this user while
+// it works on them — no Account/password, since it's never signed into.
+async function seedAiAgent() {
+  await prisma.user.upsert({
+    where: { email: AI_AGENT_EMAIL },
+    update: { name: AI_AGENT_NAME, role: Role.agent },
+    create: {
+      email: AI_AGENT_EMAIL,
+      name: AI_AGENT_NAME,
+      role: Role.agent,
+      emailVerified: true,
+    },
+  });
+
+  console.log(`Seeded AI agent user: ${AI_AGENT_EMAIL}`);
+}
+
 async function main() {
   const email = process.env.ADMIN_EMAIL;
   const password = process.env.ADMIN_PASSWORD;
@@ -66,6 +84,8 @@ async function main() {
     name: "Admin",
     role: Role.admin,
   });
+
+  await seedAiAgent();
 
   // Non-admin user, used by e2e tests to cover agent-role behavior (e.g.
   // RequireAdmin redirects, NavBar hiding the Users link). Optional so
