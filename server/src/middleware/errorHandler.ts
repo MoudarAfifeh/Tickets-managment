@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/bun";
 import type { ErrorRequestHandler } from "express";
 import { Prisma } from "../generated/prisma/client";
 
@@ -43,6 +44,9 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
     }
   }
 
+  // Only unexpected errors reach Sentry — the known mappings above are
+  // ordinary client errors, not bugs.
+  Sentry.captureException(err);
   console.error(err);
   res.status(500).json({ error: "Internal server error" });
 };
