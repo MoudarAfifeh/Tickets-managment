@@ -6,3 +6,6 @@ dist
 !.env.example
 !.env.test.example
 .DS_Store
+
+# Local skill symlinks (machine-specific absolute paths)
+.claude/skills/
