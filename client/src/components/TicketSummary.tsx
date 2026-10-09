@@ -47,7 +47,7 @@ function TicketSummary({ ticket }: TicketSummaryProps) {
   return (
     <CardContent className="flex flex-col gap-1.5 border-t pt-4">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+        <span className="text-sm font-medium text-foreground">
           Summary
         </span>
         <Button

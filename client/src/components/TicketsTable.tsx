@@ -8,7 +8,7 @@ import {
 } from "@tanstack/react-table";
 import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 import { Link } from "react-router-dom";
-import { Badge } from "@/components/ui/badge";
+import StatusBadge from "@/components/StatusBadge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -29,17 +29,6 @@ export const CATEGORY_LABELS: Record<TicketListItem["category"], string> = {
   refund_request: "Refund request",
 };
 
-export const STATUS_VARIANT: Record<
-  TicketListItem["status"],
-  "default" | "secondary" | "outline"
-> = {
-  new: "outline",
-  processing: "secondary",
-  open: "default",
-  resolved: "secondary",
-  closed: "outline",
-};
-
 const columnHelper = createColumnHelper<TicketListItem>();
 
 const columns = [
@@ -47,7 +36,10 @@ const columns = [
     id: "subject",
     header: "Subject",
     cell: (info) => (
-      <Link to={`/tickets/${info.row.original.id}`} className="font-medium">
+      <Link
+        to={`/tickets/${info.row.original.id}`}
+        className="font-medium text-foreground underline-offset-4 hover:text-primary hover:underline focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      >
         {info.getValue()}
       </Link>
     ),
@@ -55,29 +47,53 @@ const columns = [
   columnHelper.accessor((row) => row.senderName || row.senderEmail, {
     id: "senderEmail",
     header: "From",
+    cell: (info) => (
+      <span className="text-muted-foreground">{info.getValue()}</span>
+    ),
   }),
   columnHelper.accessor("category", {
     id: "category",
     header: "Category",
+    // Refunds involve money, so they're the one category tinted (clay);
+    // the rest stay neutral.
     cell: (info) => (
-      <Badge variant="secondary">{CATEGORY_LABELS[info.getValue()]}</Badge>
+      <span
+        className={
+          info.getValue() === "refund_request"
+            ? "font-medium text-clay"
+            : "text-muted-foreground"
+        }
+      >
+        {CATEGORY_LABELS[info.getValue()]}
+      </span>
     ),
   }),
   columnHelper.accessor("status", {
     id: "status",
     header: "Status",
-    cell: (info) => (
-      <Badge variant={STATUS_VARIANT[info.getValue()]}>{info.getValue()}</Badge>
-    ),
+    cell: (info) => <StatusBadge status={info.getValue()} />,
   }),
   columnHelper.accessor((row) => row.assignedTo?.name ?? "Unassigned", {
     id: "assignedTo",
     header: "Assigned to",
+    cell: (info) => (
+      <span
+        className={
+          info.row.original.assignedTo ? undefined : "text-muted-foreground"
+        }
+      >
+        {info.getValue()}
+      </span>
+    ),
   }),
   columnHelper.accessor("createdAt", {
     id: "createdAt",
     header: "Created",
-    cell: (info) => new Date(info.getValue()).toLocaleDateString(),
+    cell: (info) => (
+      <span className="text-muted-foreground tabular-nums">
+        {new Date(info.getValue()).toLocaleDateString()}
+      </span>
+    ),
   }),
 ];
 
@@ -113,10 +129,13 @@ function TicketsTable({
             {headerGroup.headers.map((header) => {
               const sortDirection = header.column.getIsSorted();
               return (
-                <TableHead key={header.id}>
+                <TableHead
+                  key={header.id}
+                  className="h-10 bg-muted/50 px-4 text-xs font-medium text-muted-foreground"
+                >
                   <button
                     type="button"
-                    className="flex items-center gap-1 cursor-pointer select-none"
+                    className="-mx-1 flex cursor-pointer items-center gap-1 rounded-sm px-1 select-none hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
                     onClick={header.column.getToggleSortingHandler()}
                   >
                     {flexRender(
@@ -130,7 +149,7 @@ function TicketsTable({
                       <ArrowDown className="size-3.5" />
                     )}
                     {!sortDirection && (
-                      <ChevronsUpDown className="size-3.5 text-muted-foreground" />
+                      <ChevronsUpDown className="size-3.5 opacity-50" />
                     )}
                   </button>
                 </TableHead>
@@ -144,22 +163,27 @@ function TicketsTable({
           ? Array.from({ length: SKELETON_ROWS }).map((_, i) => (
               <TableRow key={i}>
                 {SKELETON_WIDTHS.map((width, j) => (
-                  <TableCell key={j}>
-                    <Skeleton
-                      className={
-                        j === 2 || j === 3
-                          ? `h-5 ${width} rounded-4xl`
-                          : `h-4 ${width}`
-                      }
-                    />
+                  <TableCell key={j} className="px-4 py-3.5">
+                    <Skeleton className={`h-4 ${width}`} />
                   </TableCell>
                 ))}
               </TableRow>
             ))
-          : table.getRowModel().rows.map((row) => (
+          : table.getRowModel().rows.length === 0
+            ? (
+                <TableRow className="hover:bg-transparent">
+                  <TableCell
+                    colSpan={columns.length}
+                    className="px-4 py-12 text-center text-muted-foreground"
+                  >
+                    No tickets to show.
+                  </TableCell>
+                </TableRow>
+              )
+            : table.getRowModel().rows.map((row) => (
               <TableRow key={row.id}>
                 {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
+                  <TableCell key={cell.id} className="px-4 py-3.5">
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>
                 ))}

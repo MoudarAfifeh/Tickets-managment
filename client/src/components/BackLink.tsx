@@ -8,7 +8,7 @@ function BackLink({ className, children, ...props }: LinkProps) {
   return (
     <Link
       className={cn(
-        "mb-6 inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100",
+        "mb-6 inline-flex items-center gap-1 text-sm rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
         className,
       )}
       {...props}

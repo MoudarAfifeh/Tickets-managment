@@ -78,7 +78,7 @@ function TicketDetailsPage() {
   return (
     <div>
       <NavBar />
-      <div className="mx-auto max-w-5xl p-6">
+      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
         <BackLink to="/">Back to tickets</BackLink>
 
         {isPending && <TicketDetailSkeleton />}
@@ -87,7 +87,7 @@ function TicketDetailsPage() {
           <Card>
             <CardContent className="flex flex-col items-center gap-2 py-16 text-center">
               <CircleAlert className="size-8 text-muted-foreground" />
-              <p className="font-medium text-gray-900 dark:text-gray-100">
+              <p className="font-medium text-foreground">
                 {notFound ? "Ticket not found" : "Something went wrong"}
               </p>
               <p className="text-sm text-muted-foreground">
@@ -110,12 +110,12 @@ function TicketDetailsPage() {
               </CardFooter>
             </Card>
 
-            <Card className="lg:col-span-2">
+            <Card className="lg:sticky lg:top-6 lg:col-span-2 lg:self-start">
               <UpdateTicket ticket={ticket} />
             </Card>
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 }

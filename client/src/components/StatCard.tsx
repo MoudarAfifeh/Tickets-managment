@@ -14,15 +14,15 @@ type StatCardProps = {
 function StatCard({ icon: Icon, label, value, isPending }: StatCardProps) {
   return (
     <Card>
-      <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
+      <CardHeader className="flex flex-row items-center justify-between gap-2">
         <span className="text-sm text-muted-foreground">{label}</span>
-        <Icon className="size-4 text-muted-foreground" />
+        <Icon className="size-4 text-primary" aria-hidden="true" />
       </CardHeader>
       <CardContent>
         {isPending ? (
           <Skeleton className="h-8 w-20" />
         ) : (
-          <span className="font-heading text-3xl font-semibold text-gray-900 dark:text-gray-100">
+          <span className="font-heading text-3xl font-semibold tracking-tight text-foreground tabular-nums">
             {value}
           </span>
         )}

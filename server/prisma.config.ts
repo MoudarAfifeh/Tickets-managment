@@ -10,6 +10,9 @@ export default defineConfig({
   },
   datasource: {
     url: env("DATABASE_URL"),
-    shadowDatabaseUrl: env("SHADOW_DATABASE_URL"),
+    // Only `migrate dev` needs a shadow database; production runs
+    // `migrate deploy`, which doesn't, so this is optional (env() would
+    // throw when it's unset).
+    shadowDatabaseUrl: process.env.SHADOW_DATABASE_URL,
   },
 });

@@ -1,13 +1,22 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/geist";
+@import "@fontsource-variable/onest";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
     --font-heading: var(--font-sans);
-    --font-sans: 'Geist Variable', sans-serif;
+    --font-sans: 'Onest Variable', ui-sans-serif, system-ui, sans-serif;
+    --color-nav: var(--nav);
+    --color-nav-foreground: var(--nav-foreground);
+    --color-nav-muted: var(--nav-muted);
+    --color-status-new: var(--status-new);
+    --color-status-processing: var(--status-processing);
+    --color-status-open: var(--status-open);
+    --color-status-resolved: var(--status-resolved);
+    --color-status-closed: var(--status-closed);
+    --color-clay: var(--clay);
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -48,73 +57,93 @@
     --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* Harbor: calm, cool neutrals with one sea-green accent. The deep harbor
+   navigation bar is the one bold surface; everything else stays quiet. */
 :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
-    --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --radius: 0.625rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0);
+    --background: #F3F5F4;
+    --foreground: #1F2A2A;
+    --card: #FFFFFF;
+    --card-foreground: #1F2A2A;
+    --popover: #FFFFFF;
+    --popover-foreground: #1F2A2A;
+    --primary: #2E6B66;
+    --primary-foreground: #FFFFFF;
+    --secondary: #E6EEEC;
+    --secondary-foreground: #1F3B39;
+    --muted: #EDF1EF;
+    --muted-foreground: #67716F;
+    --accent: #E3ECEA;
+    --accent-foreground: #1F3B39;
+    --destructive: #B23F2C;
+    --border: #DCE3E1;
+    --input: #CFD8D5;
+    --ring: #2E6B66;
+    --chart-1: #2E6B66;
+    --chart-2: #5B9590;
+    --chart-3: #9CC2BD;
+    --chart-4: #B07D2B;
+    --chart-5: #A3563F;
+    --radius: 0.75rem;
+    --nav: #1F3B39;
+    --nav-foreground: #F3F5F4;
+    --nav-muted: #A9C0BC;
+    --status-new: #5B7083;
+    --status-processing: #B07D2B;
+    --status-open: #2E6B66;
+    --status-resolved: #4B77A0;
+    --status-closed: #8A9391;
+    --clay: #A3563F;
+    --sidebar: #FFFFFF;
+    --sidebar-foreground: #1F2A2A;
+    --sidebar-primary: #2E6B66;
+    --sidebar-primary-foreground: #FFFFFF;
+    --sidebar-accent: #E3ECEA;
+    --sidebar-accent-foreground: #1F3B39;
+    --sidebar-border: #DCE3E1;
+    --sidebar-ring: #2E6B66;
 }
 
 .dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.488 0.243 264.376);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.556 0 0);
+    --background: #121A19;
+    --foreground: #E4EBE9;
+    --card: #1A2423;
+    --card-foreground: #E4EBE9;
+    --popover: #1A2423;
+    --popover-foreground: #E4EBE9;
+    --primary: #5FA9A1;
+    --primary-foreground: #0F1F1D;
+    --secondary: #24312F;
+    --secondary-foreground: #E4EBE9;
+    --muted: #222E2C;
+    --muted-foreground: #9AA6A3;
+    --accent: #263634;
+    --accent-foreground: #E4EBE9;
+    --destructive: #E07A66;
+    --border: rgb(255 255 255 / 9%);
+    --input: rgb(255 255 255 / 14%);
+    --ring: #5FA9A1;
+    --chart-1: #5FA9A1;
+    --chart-2: #3F837C;
+    --chart-3: #2B5C57;
+    --chart-4: #D3A253;
+    --chart-5: #D08A72;
+    --nav: #0E1716;
+    --nav-foreground: #E4EBE9;
+    --nav-muted: #8FA7A3;
+    --status-new: #8DA3B6;
+    --status-processing: #D3A253;
+    --status-open: #5FA9A1;
+    --status-resolved: #7FA6CC;
+    --status-closed: #7D8886;
+    --clay: #D08A72;
+    --sidebar: #1A2423;
+    --sidebar-foreground: #E4EBE9;
+    --sidebar-primary: #5FA9A1;
+    --sidebar-primary-foreground: #0F1F1D;
+    --sidebar-accent: #263634;
+    --sidebar-accent-foreground: #E4EBE9;
+    --sidebar-border: rgb(255 255 255 / 9%);
+    --sidebar-ring: #5FA9A1;
 }
 
 @layer base {
@@ -125,7 +154,10 @@
     @apply bg-background text-foreground;
     }
   html {
-    @apply font-sans;
+    @apply font-sans antialiased;
+    }
+  h1, h2, h3 {
+    @apply tracking-tight;
     }
   input:-webkit-autofill,
   input:-webkit-autofill:hover,

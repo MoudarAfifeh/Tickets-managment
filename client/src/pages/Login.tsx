@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2 } from "lucide-react";
+import { LifeBuoy, Loader2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { z } from "zod";
@@ -49,12 +49,18 @@ function Login() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-6">
+    <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-6">
+      <div className="flex items-center gap-2 text-lg font-semibold tracking-tight text-foreground">
+        <span className="flex size-8 items-center justify-center rounded-lg bg-nav text-nav-foreground">
+          <LifeBuoy className="size-4.5" aria-hidden="true" />
+        </span>
+        Helpdesk
+      </div>
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle className="text-xl">Sign in</CardTitle>
           <CardDescription>
-            Enter your email and password to access your account.
+            Use the email and password your admin set up for you.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -97,7 +103,7 @@ function Login() {
           </form>
         </CardContent>
       </Card>
-    </div>
+    </main>
   );
 }
 

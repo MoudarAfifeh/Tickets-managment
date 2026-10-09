@@ -3,6 +3,7 @@ import type { OnChangeFn, SortingState } from "@tanstack/react-table";
 import { useState } from "react";
 import type { TicketCategory, TicketSortField, TicketStatus } from "code";
 import NavBar from "../components/NavBar";
+import PageHeader from "../components/PageHeader";
 import TicketsTable from "../components/TicketsTable";
 import TicketFilters, {
   type TicketFiltersValue,
@@ -108,32 +109,45 @@ function Tickets() {
   return (
     <div>
       <NavBar />
-      <div className="p-6">
-        <div className="mb-4 text-lg font-medium text-gray-900 dark:text-gray-100">
-          Tickets
-        </div>
+      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+        <PageHeader
+          title="Tickets"
+          description={
+            data
+              ? `${data.total.toLocaleString()} ${data.total === 1 ? "ticket" : "tickets"}`
+              : undefined
+          }
+        />
 
-        <TicketFilters value={filters} onChange={handleFiltersChange} />
+        <section className="overflow-hidden rounded-xl border bg-card">
+          <div className="border-b p-3">
+            <TicketFilters value={filters} onChange={handleFiltersChange} />
+          </div>
 
-        {error && <ErrorMessage>{error.message}</ErrorMessage>}
+          {error && (
+            <ErrorMessage className="px-4 py-6">{error.message}</ErrorMessage>
+          )}
 
-        {!error && (
-          <>
-            <TicketsTable
-              tickets={data?.tickets}
-              isPending={isPending}
-              sorting={sorting}
-              onSortingChange={handleSortingChange}
-            />
-            <TicketsPagination
-              page={page}
-              pageSize={PAGE_SIZE}
-              total={data?.total ?? 0}
-              onPageChange={setPage}
-            />
-          </>
-        )}
-      </div>
+          {!error && (
+            <>
+              <TicketsTable
+                tickets={data?.tickets}
+                isPending={isPending}
+                sorting={sorting}
+                onSortingChange={handleSortingChange}
+              />
+              <div className="border-t px-4 py-3">
+                <TicketsPagination
+                  page={page}
+                  pageSize={PAGE_SIZE}
+                  total={data?.total ?? 0}
+                  onPageChange={setPage}
+                />
+              </div>
+            </>
+          )}
+        </section>
+      </main>
     </div>
   );
 }

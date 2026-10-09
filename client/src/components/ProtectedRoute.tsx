@@ -6,7 +6,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   const { data, isPending } = useSession();
 
   if (isPending)
-    return <p className="p-6 text-center text-gray-500">Loading...</p>;
+    return <p className="p-6 text-center text-muted-foreground">Loading...</p>;
   if (!data) return <Navigate to="/login" replace />;
 
   return children;
@@ -16,7 +16,7 @@ export function RedirectIfAuthed({ children }: { children: ReactNode }) {
   const { data, isPending } = useSession();
 
   if (isPending)
-    return <p className="p-6 text-center text-gray-500">Loading...</p>;
+    return <p className="p-6 text-center text-muted-foreground">Loading...</p>;
   if (data) return <Navigate to="/" replace />;
 
   return children;
@@ -26,7 +26,7 @@ export function RequireAdmin({ children }: { children: ReactNode }) {
   const { data, isPending } = useSession();
 
   if (isPending)
-    return <p className="p-6 text-center text-gray-500">Loading...</p>;
+    return <p className="p-6 text-center text-muted-foreground">Loading...</p>;
   if (!data) return <Navigate to="/login" replace />;
   if (data.user.role !== "admin") return <Navigate to="/" replace />;
 

@@ -1,50 +1,79 @@
-import { Link, useNavigate } from "react-router-dom";
+import { LifeBuoy } from "lucide-react";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
+import { cn, initials } from "@/lib/utils";
 import { authClient, useSession } from "../lib/auth-client";
+
+function navLinkClass({ isActive }: { isActive: boolean }) {
+  return cn(
+    "rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-nav-foreground",
+    isActive
+      ? "bg-white/12 text-nav-foreground"
+      : "text-nav-muted hover:bg-white/6 hover:text-nav-foreground",
+  );
+}
 
 function NavBar() {
   const navigate = useNavigate();
   const { data } = useSession();
+  const { pathname } = useLocation();
+  // A single ticket (/tickets/:id) still belongs to the Tickets section.
+  const onTickets = pathname === "/" || pathname.startsWith("/tickets/");
 
   async function handleSignOut() {
     await authClient.signOut();
     navigate("/login", { replace: true });
   }
 
+  const userName = data?.user.name ?? "";
+
   return (
-    <nav className="flex items-center justify-between border-b border-gray-200 px-6 py-3 dark:border-gray-800">
-      <div className="flex items-center gap-6">
-        <Link
-          to="/"
-          className="text-lg font-medium text-gray-900 dark:text-gray-100"
-        >
-          Tickets
-        </Link>
-        <Link
-          to="/dashboard"
-          className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
-        >
-          Dashboard
-        </Link>
-        {data?.user.role === "admin" && (
+    <header className="bg-nav text-nav-foreground">
+      <nav className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
+        <div className="flex min-w-0 items-center gap-6">
           <Link
-            to="/users"
-            className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+            to="/"
+            aria-label="Helpdesk home"
+            className="flex items-center gap-2 rounded-md font-semibold tracking-tight focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-nav-foreground"
           >
-            Users
+            <LifeBuoy className="size-5 text-nav-muted" aria-hidden="true" />
+            <span className="hidden sm:inline">Helpdesk</span>
           </Link>
-        )}
-      </div>
-      <div className="flex items-center gap-3 text-sm">
-        <span>{data?.user.name}</span>
-        <button
-          type="button"
-          onClick={handleSignOut}
-          className="rounded-md border border-gray-200 px-3 py-1.5 font-sans text-gray-600 dark:border-gray-800 dark:text-gray-400"
-        >
-          Sign out
-        </button>
-      </div>
-    </nav>
+          <div className="flex items-center gap-1">
+            <NavLink to="/" className={() => navLinkClass({ isActive: onTickets })}>
+              Tickets
+            </NavLink>
+            <NavLink to="/dashboard" className={navLinkClass}>
+              Dashboard
+            </NavLink>
+            {data?.user.role === "admin" && (
+              <NavLink to="/users" className={navLinkClass}>
+                Users
+              </NavLink>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-3 text-sm">
+          {userName && (
+            <div className="hidden items-center gap-2 md:flex">
+              <span
+                className="flex size-7 items-center justify-center rounded-full bg-white/12 text-xs font-semibold"
+                aria-hidden="true"
+              >
+                {initials(userName)}
+              </span>
+              <span className="text-nav-foreground">{userName}</span>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={handleSignOut}
+            className="rounded-md px-3 py-1.5 font-medium text-nav-muted transition-colors hover:bg-white/6 hover:text-nav-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-nav-foreground"
+          >
+            Sign out
+          </button>
+        </div>
+      </nav>
+    </header>
   );
 }
 

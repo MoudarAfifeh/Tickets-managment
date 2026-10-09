@@ -68,17 +68,15 @@ async function updateTicketCategory(
 // "Unassigned" option uses this sentinel and gets mapped back to null.
 const UNASSIGNED = "__unassigned__";
 
-// Gives the status control an at-a-glance severity cue: new (unseen) muted,
-// processing (AI working on it) amber, open (active, needs attention) in
-// green, resolved (done) in blue, closed (archived) muted.
+// Gives the status control an at-a-glance cue in the same color as the
+// status dot in the tickets list (the --status-* theme tokens): a soft tint
+// and border rather than a solid fill, so the panel stays calm.
 const STATUS_TRIGGER_CLASS: Record<TicketStatus, string> = {
-  new: "border-border bg-transparent text-foreground",
-  processing:
-    "border-transparent bg-amber-500 text-white hover:bg-amber-500/90 dark:bg-amber-500/90 dark:hover:bg-amber-500",
-  open: "border-transparent bg-green-600 text-white hover:bg-green-600/90 dark:bg-green-500/90 dark:hover:bg-green-500",
-  resolved:
-    "border-transparent bg-blue-600 text-white hover:bg-blue-600/90 dark:bg-blue-500/90 dark:hover:bg-blue-500",
-  closed: "border-border bg-transparent text-foreground",
+  new: "border-status-new/40 bg-status-new/10",
+  processing: "border-status-processing/40 bg-status-processing/10",
+  open: "border-status-open/40 bg-status-open/10",
+  resolved: "border-status-resolved/40 bg-status-resolved/10",
+  closed: "border-status-closed/40 bg-status-closed/10",
 };
 
 function DetailRow({
@@ -96,7 +94,7 @@ function DetailRow({
         <Icon className="size-3.5 shrink-0" />
         <span>{label}</span>
       </div>
-      <div className="min-w-0 flex-1 text-sm text-gray-900 dark:text-gray-100">
+      <div className="min-w-0 flex-1 text-sm text-foreground">
         {children}
       </div>
     </div>

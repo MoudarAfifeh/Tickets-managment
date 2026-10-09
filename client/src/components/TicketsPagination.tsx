@@ -18,8 +18,8 @@ function TicketsPagination({
   const rangeEnd = Math.min(page * pageSize, total);
 
   return (
-    <div className="mt-4 flex items-center justify-between">
-      <p className="text-sm text-muted-foreground">
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <p className="text-sm text-muted-foreground tabular-nums">
         {total === 0
           ? "No tickets"
           : `Showing ${rangeStart}-${rangeEnd} of ${total}`}
@@ -33,7 +33,7 @@ function TicketsPagination({
         >
           Previous
         </Button>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground tabular-nums">
           Page {page} of {totalPages}
         </p>
         <Button

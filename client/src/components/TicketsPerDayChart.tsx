@@ -132,7 +132,7 @@ function TicketsPerDayBars({ data }: { data: DayCount[] }) {
           return (
             <div
               key={day.date}
-              className="flex-1 text-center text-[10px] text-muted-foreground"
+              className="flex-1 text-center text-[10px] whitespace-nowrap text-muted-foreground"
             >
               {showLabel ? formatDateShort(day.date) : " "}
             </div>

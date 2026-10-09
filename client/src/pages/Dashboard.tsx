@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Bot, CircleDot, Clock, Percent, Ticket as TicketIcon } from "lucide-react";
 import NavBar from "@/components/NavBar";
+import PageHeader from "@/components/PageHeader";
 import StatCard from "@/components/StatCard";
 import TicketsPerDayChart from "@/components/TicketsPerDayChart";
 import ErrorMessage from "@/components/ErrorMessage";
@@ -36,10 +37,11 @@ function Dashboard() {
   return (
     <div>
       <NavBar />
-      <div className="p-6">
-        <div className="mb-4 text-lg font-medium text-gray-900 dark:text-gray-100">
-          Dashboard
-        </div>
+      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+        <PageHeader
+          title="Dashboard"
+          description="How the support queue is doing right now."
+        />
 
         {error && <ErrorMessage>{error.message}</ErrorMessage>}
 
@@ -88,7 +90,7 @@ function Dashboard() {
             isPending={isPending}
           />
         )}
-      </div>
+      </main>
     </div>
   );
 }

@@ -14,6 +14,15 @@ AI-powered support ticket system. See `project-scope.md` for the product spec, `
 - `bun run dev:server` — start the API with watch mode
 - `bun run dev:client` — start the Vite dev server
 - Run both to work on the full stack; the client calls the API through the `/api` proxy, not a hardcoded port.
+- Don't start a second server process (e.g. a production-mode run on another port) against the `prisma dev` database while `dev:server` is up — two processes' pools exceed its 10-connection limit and wedge it (see Database below). Stop `dev:server` first.
+
+## Deployment (Railway)
+
+- **One service, one image.** The root `Dockerfile` builds the client (`client/dist`) and generates the Prisma client; in production (`NODE_ENV=production`) `server/src/index.ts` serves `client/dist` itself, with an SPA fallback to `index.html` for any non-`/api` path (unknown `/api/*` paths get a JSON 404). App and API share one origin, so there's no CORS or cross-site cookie setup for Better Auth. Dev is unchanged: Vite serves the client and proxies `/api`.
+- `railway.json` (config as code): Dockerfile builder, **pre-deploy** `bun run --cwd server release` (= `prisma migrate deploy` + `prisma/seed.ts`, run against the live DB before each deploy goes live), healthcheck `/api/health` (503 when the DB is unreachable). Seeding every deploy is intentional: it's idempotent, it creates the AI agent user the auto-resolver requires, and it resets the admin password to `ADMIN_PASSWORD`.
+- Production-only server behavior: `trust proxy` = 1 (Railway's single proxy hop — needed for `express-rate-limit` and real client IPs), rate limiting on, static client serving. SIGTERM/SIGINT stop the HTTP server, let pg-boss finish in-flight jobs (`boss.stop({ graceful: true })`, 20s cap) and disconnect Prisma.
+- `prisma.config.ts` reads `SHADOW_DATABASE_URL` via `process.env` (optional) rather than `env()` (which throws when unset) — only `migrate dev` needs it. The Docker build runs `prisma generate` with a placeholder `DATABASE_URL`; generate never connects.
+- **Railway variables** (service → Variables): `DATABASE_URL=${{Postgres.DATABASE_URL}}` (reference to the Railway Postgres service), `BETTER_AUTH_SECRET` (`openssl rand -base64 32`), `BETTER_AUTH_URL` and `TRUSTED_ORIGINS` both `https://${{RAILWAY_PUBLIC_DOMAIN}}` (or the custom domain), `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `WEBHOOK_SECRET`, `OPENAI_API_KEY`, optionally `SENTRY_DSN`. `VITE_SENTRY_DSN` is a **build-time** value (declared as an `ARG` in the Dockerfile — Railway only passes variables to Dockerfile builds that way). `PORT` and `NODE_ENV` are set by Railway / the Dockerfile; don't set them.
 
 ## Database
 

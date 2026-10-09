@@ -1,4 +1,5 @@
 import type { TicketCategory, TicketStatus } from "code";
+import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -30,13 +31,20 @@ type TicketFiltersProps = {
 
 function TicketFilters({ value, onChange }: TicketFiltersProps) {
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-2">
-      <Input
-        placeholder="Search subject or sender..."
-        value={value.search}
-        onChange={(e) => onChange({ ...value, search: e.target.value })}
-        className="w-64"
-      />
+    <div className="flex flex-wrap items-center gap-2">
+      <div className="relative w-full sm:w-72">
+        <Search
+          aria-hidden="true"
+          className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
+        />
+        <Input
+          placeholder="Search subject or sender..."
+          aria-label="Search tickets"
+          value={value.search}
+          onChange={(e) => onChange({ ...value, search: e.target.value })}
+          className="pl-8"
+        />
+      </div>
       <Select
         value={value.status}
         onValueChange={(status: TicketStatus | "all" | null) =>
@@ -44,7 +52,11 @@ function TicketFilters({ value, onChange }: TicketFiltersProps) {
         }
       >
         <SelectTrigger className="w-40" aria-label="Status">
-          <SelectValue placeholder="Status" />
+          <SelectValue>
+            {(status: TicketStatus | "all") =>
+              status === "all" ? "All statuses" : STATUS_LABELS[status]
+            }
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">All statuses</SelectItem>
@@ -62,7 +74,11 @@ function TicketFilters({ value, onChange }: TicketFiltersProps) {
         }
       >
         <SelectTrigger className="w-48" aria-label="Category">
-          <SelectValue placeholder="Category" />
+          <SelectValue className="truncate">
+            {(category: TicketCategory | "all") =>
+              category === "all" ? "All categories" : CATEGORY_LABELS[category]
+            }
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">All categories</SelectItem>
