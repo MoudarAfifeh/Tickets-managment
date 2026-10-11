@@ -41,6 +41,16 @@ describe("TicketsTable", () => {
     expect(screen.getByText(label)).toBeInTheDocument();
   });
 
+  it.each([
+    ["general_question", "General question"],
+    ["technical_question", "Technical question"],
+    ["refund_request", "Refund request"],
+  ] as const)("renders a %s category badge", (category, label) => {
+    renderTable([makeListItem({ category })]);
+
+    expect(screen.getByText(label)).toHaveAttribute("data-slot", "badge");
+  });
+
   it("links the subject to the ticket's detail page", () => {
     renderTable([makeListItem()]);
 
