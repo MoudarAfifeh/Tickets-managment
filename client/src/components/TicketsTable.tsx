@@ -9,6 +9,7 @@ import {
 import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 import { Link } from "react-router-dom";
 import StatusBadge from "@/components/StatusBadge";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -55,17 +56,18 @@ const columns = [
     id: "category",
     header: "Category",
     // Refunds involve money, so they're the one category tinted (clay);
-    // the rest stay neutral.
+    // the rest stay on the neutral secondary pill.
     cell: (info) => (
-      <span
+      <Badge
+        variant="secondary"
         className={
           info.getValue() === "refund_request"
-            ? "font-medium text-clay"
-            : "text-muted-foreground"
+            ? "bg-clay/10 text-clay dark:bg-clay/20"
+            : undefined
         }
       >
         {CATEGORY_LABELS[info.getValue()]}
-      </span>
+      </Badge>
     ),
   }),
   columnHelper.accessor("status", {
