@@ -7,6 +7,7 @@ import { parseBody } from "../lib/validateBody";
 import { requireParam } from "../lib/requireParam";
 import { prisma } from "../db";
 import { Role } from "../generated/prisma/enums";
+import { AI_AGENT_EMAIL } from "../lib/aiAgent";
 
 export const usersRouter = Router();
 
@@ -24,7 +25,8 @@ const userSelect = {
 
 usersRouter.get("/", async (_req, res) => {
   const users = await prisma.user.findMany({
-    where: { deletedAt: null },
+    // The AI agent is a system user; hide it so it can't be edited or deleted.
+    where: { deletedAt: null, email: { not: AI_AGENT_EMAIL } },
     select: userSelect,
     orderBy: { createdAt: "asc" },
   });
@@ -70,6 +72,15 @@ usersRouter.patch("/:id", async (req, res) => {
   const id = requireParam("id", req, res);
   if (id === null) return;
 
+  const existing = await prisma.user.findUnique({
+    where: { id },
+    select: { email: true },
+  });
+  if (existing?.email === AI_AGENT_EMAIL) {
+    res.status(403).json({ error: "The AI agent cannot be modified" });
+    return;
+  }
+
   const hashedPassword = password ? await hashPassword(password) : null;
 
   // A nonexistent id rejects with Prisma P2025 (404) and a colliding email
@@ -99,11 +110,15 @@ usersRouter.delete("/:id", async (req, res) => {
 
   const target = await prisma.user.findUnique({
     where: { id },
-    select: { role: true, deletedAt: true },
+    select: { role: true, email: true, deletedAt: true },
   });
 
   if (!target || target.deletedAt) {
     res.status(404).json({ error: "User not found" });
+    return;
+  }
+  if (target.email === AI_AGENT_EMAIL) {
+    res.status(403).json({ error: "The AI agent cannot be deleted" });
     return;
   }
   if (target.role === Role.admin) {
