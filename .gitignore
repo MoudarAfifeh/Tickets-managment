@@ -9,3 +9,6 @@ dist
 
 # Local skill symlinks (machine-specific absolute paths)
 .claude/skills/
+
+# Local developer notes (not pushed)
+DEVELOPER_GUIDE.md
